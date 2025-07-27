@@ -1,162 +1,199 @@
-# SnackBox: A Smart Canteen Management System
 
-**Course**: CSE 3100
+# 🍱 SnackBox: A Smart Canteen Management System
 
-## Table of Contents
-
-1. [Project Overview](#project-overview)
-2. [Features](#features)
-3. [Getting Started](#getting-started)
-   - [Prerequisites](#prerequisites)
-   - [Installation](#installation)
-   - [Running the Application](#running-the-application)
-4. [Usage](#usage)
-5. [Tech Stack](#tech-stack)
-6. [File Structure](#file-structure)
-7. [Contributing](#contributing)
-8. [Team](#team)
-9. [License](#license)
+**Course:** CSE 3100  
+A web-based system to streamline the operations of institutional canteens — from ordering to inventory and real-time analytics.
 
 ---
 
-## Project Overview
+## 📖 Table of Contents
 
-SnackBox is a web-based Canteen Management System designed to streamline the ordering, preparation, and delivery of meals in institutional canteens. Built as a course project for **CSE 3100**, SnackBox offers an intuitive interface for customers, staff, and administrators.
-
-Key goals:
-
-- Reduce order waiting times
-- Digitalize menu & inventory management
-- Provide real-time order tracking
-
----
-
-## Features
-
-- **User Roles & Authentication**: Admin, Staff, Customer
-- **Dynamic Menu Management**: Create, update, delete items; categorize by meal type
-- **QR-based Table Ordering**: Scan code to assign orders to tables
-- **Inventory Control**: Track stock levels, low-stock alerts
-- **Order Workflow**: Placed → In Progress → Ready → Delivered
-- **Payments & Wallet**: Support for multiple payment methods and in-app wallet
-- **Analytics Dashboard**: Sales reports, best-selling items, peak hours
-- **Loyalty Program**: Earn and redeem BoxPoints for free snacks
-- **Feedback System**: Quick thumbs-up/down on each dish
+- [About the Project](#about-the-project)
+- [Key Features](#key-features)
+- [Target Audience](#target-audience)
+- [UI Design](#ui-design)
+- [Technology Stack](#technology-stack)
+- [Getting Started](#getting-started)
+  - [Prerequisites](#prerequisites)
+  - [Installation](#installation)
+  - [Running the Application](#running-the-application)
+- [Usage](#usage)
+- [Project Structure](#project-structure)
+- [Contributing](#contributing)
+- [Team](#team)
+- [License](#license)
 
 ---
 
-## Getting Started
+## 📌 About the Project
 
-### Prerequisites
+**SnackBox** is a full-stack Smart Canteen Management System developed as a course project for **CSE 3100**. It transforms traditional canteen operations by integrating:
 
-- Node.js (v14+)
-- npm (v6+)
-- PostgreSQL (v12+)
-- Redis (optional, for caching)
+- QR-based table orders  
+- Smart inventory control  
+- Real-time order tracking  
+- Admin dashboards  
+- Loyalty rewards & more
 
-### Installation
-
-1. **Clone the repository**
-   ```bash
-   git clone https://github.com/your-username/SnackBox.git
-   cd SnackBox
-   ```
-2. **Backend setup**
-   ```bash
-   cd server
-   npm install
-   cp .env.example .env       # configure your DB and API keys
-   npm run migrate            # apply database migrations
-   npm run seed               # seed initial data (optional)
-   ```
-3. **Frontend setup**
-   ```bash
-   cd ../client
-   npm install
-   ```
-
-### Running the Application
-
-- **Start the backend**
-  ```bash
-  cd server
-  npm start
-  ```
-- **Start the frontend**
-  ```bash
-  cd client
-  npm start
-  ```
-
-Visit `http://localhost:3000` to explore SnackBox.
+Our mission is to reduce order waiting time, digitize operations, and improve customer experience in institutional canteens.
 
 ---
 
-## Usage
+## 🚀 Key Features
 
-1. **Register** as a customer or log in with provided test credentials.
-2. **Browse the menu**, add items to your SnackBox, and check out via preferred payment method.
-3. **Staff view**: monitor real-time orders and update statuses.
-4. **Admin dashboard**: manage menu, inventory, users, and view analytics.
+### ✅ Customer-Side
+- Online food ordering & real-time status tracking
+- QR-based table ordering
+- AI-powered menu suggestions (upcoming)
+- Feedback system for each item
+- Meal plan subscriptions (optional)
+- Wallet & BoxPoints loyalty system
+
+### ✅ Staff/Admin-Side
+- Live order dashboard with order state transitions
+- CRUD interface for menu & inventory
+- Stock alerts and waste logging
+- Staff scheduling and management
+
+### 📊 Analytics & Smart Modules
+- Sales reports & revenue analytics
+- Peak hours and best-selling item insights
+- Promotion & coupon system
+- Digital queue and display integration
 
 ---
 
-## Tech Stack
+## 🎯 Target Audience
 
-- **Frontend**: React, Tailwind CSS, React Router
-- **Backend**: Node.js, Express.js, JWT Authentication
-- **Database**: PostgreSQL, Sequelize ORM
-- **Caching & Real-Time**: Redis, Socket.io
-- **Notifications**: Twilio SMS, Firebase Cloud Messaging
+- **Customers**: Students, faculty, guests
+- **Staff**: Kitchen team, delivery, and table managers
+- **Admins**: Canteen managers and institutional heads
 
 ---
 
-## File Structure
+## 🎨 UI Design
 
-```plaintext
+Modern, responsive dashboard with role-based navigation and light/dark theme support.
+
+🔗 **Figma Link**: _[SnackBox UI Design](https://www.figma.com/community/file/1531246323983921162)_
+
+---
+
+## 🛠️ Technology Stack
+
+### Frontend
+- React.js
+- Ant Design / Material UI
+
+### Backend
+- Laravel (PHP REST API)
+
+### Database
+- MySQL / PostgreSQL
+
+### Hosting / Cloud
+- AWS / DigitalOcean / Vercel (TBD)
+
+### DevOps & Tools
+- GitHub
+- Docker
+- Postman
+- Figma
+
+---
+
+## ⚙️ Getting Started
+
+### 🔧 Prerequisites
+
+- PHP >= 8.0
+- Composer
+- Node.js (for frontend)
+- MySQL or PostgreSQL
+- Redis (optional)
+
+### 📦 Installation
+
+#### Clone the repository
+
+```bash
+git clone https://github.com/your-username/SnackBox.git
+cd SnackBox
+```
+
+#### Backend (Laravel)
+
+```bash
+cd backend
+composer install
+cp .env.example .env      # Configure DB credentials
+php artisan key:generate
+php artisan migrate
+php artisan db:seed       # Optional: Seed sample data
+php artisan serve
+```
+
+#### Frontend (React)
+
+```bash
+cd ../frontend
+npm install
+npm start
+```
+
+Visit: [http://localhost:3000](http://localhost:3000)
+
+---
+
+## 🧪 Usage
+
+1. Register or log in using demo credentials.
+2. Browse the menu, place an order, and select payment method.
+3. View real-time order status and notifications.
+4. Staff can manage order queues and inventory.
+5. Admins can manage system-wide settings, analytics, and feedback.
+
+---
+
+## 📁 Project Structure
+
+```
 SnackBox/
-├── client/          # React frontend
-├── server/          # Express backend
-│   ├── controllers/
-│   ├── models/
+├── frontend/            # React + Ant Design frontend
+├── backend/             # Laravel backend
+│   ├── app/
 │   ├── routes/
-│   └── migrations/
-└── README.md        # Project documentation
+│   ├── database/
+│   └── ...
+└── README.md            # Project documentation
 ```
 
 ---
 
-## Contributing
+## 🤝 Contributing
 
-Contributions are welcome! Please follow these steps:
+Contributions are welcome:
 
-1. Fork the repo.
-2. Create a feature branch: `git checkout -b feature/YourFeature`
-3. Commit changes: `git commit -m 'Add YourFeature'`
-4. Push to branch: `git push origin feature/YourFeature`
-5. Open a Pull Request.
+1. Fork the repository
+2. Create your branch: `git checkout -b feature/YourFeature`
+3. Commit: `git commit -m 'Add YourFeature'`
+4. Push: `git push origin feature/YourFeature`
+5. Open a Pull Request
 
-Please ensure code follows existing style conventions and includes relevant tests.
-
----
-
-## Team
-
-- **Tahmid Khan**
-- **Tahmid Amir**
-- **Saobia Islam Tinni**
-- **Nusrat Jahan Mim**
+Please follow existing conventions and include tests where appropriate.
 
 ---
 
-## UI Design
-The UI will feature a modern, responsive dashboard with role-based navigation, and support for both light and dark themes.
+## 👥 Team
 
-**Figma Link**: [SnackBox UI Design](https://www.figma.com/community/file/1531246323983921162)
+- **Tahmid Khan** (20220204086)
+- **Tahmid Amir** (20220204082)
+- **Saobia Islam Tinni** (20220204088)
+- **Nusrat Jahan Mim** (20220204092)
 
+---
 
-
-## License
+## 📄 License
 
 This project is licensed under the [MIT License](LICENSE).
 
