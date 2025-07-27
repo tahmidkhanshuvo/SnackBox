@@ -144,10 +144,17 @@ Please ensure code follows existing style conventions and includes relevant test
 
 - **Tahmid Khan**
 - **Tahmid Amir**
-- **Saobia Tinni**
+- **Saobia Islam Tinni**
 - **Nusrat Jahan Mim**
 
 ---
+
+## UI Design
+The UI will feature a modern, responsive dashboard with role-based navigation, and support for both light and dark themes.
+
+**Figma Link**: [SnackBox UI Design](https://www.figma.com/community/file/1531246323983921162)
+
+
 
 ## License
 
