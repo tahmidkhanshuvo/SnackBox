@@ -142,9 +142,10 @@ Please ensure code follows existing style conventions and includes relevant test
 
 ## Team
 
-- **Tahmid Khan** (tahmid)
-- **Saobia Tinni** (tinni)
-- **Nusrat Jahan Mim** (n\_mim)
+- **Tahmid Khan**
+- **Tahmid Amir**
+- **Saobia Tinni**
+- **Nusrat Jahan Mim**
 
 ---
 
