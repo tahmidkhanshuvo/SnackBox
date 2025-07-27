@@ -1,4 +1,4 @@
-# SnackBox: Canteen Management System
+# SnackBox: A Smart Canteen Management System
 
 **Course**: CSE 3100
 
