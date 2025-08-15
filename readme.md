@@ -186,14 +186,12 @@ Please follow existing conventions and include tests where appropriate.
 
 ## 👥 Team
 
-- **Tahmid Khan** (20220204086)
-<a href="https://wakatime.com/badge/user/894dfb31-0f9f-49e6-8d27-968cdd668e2d/project/3ea3fcd1-eacd-40ab-b7f7-2f7f2bb7ce55"><img src="https://wakatime.com/badge/user/894dfb31-0f9f-49e6-8d27-968cdd668e2d/project/3ea3fcd1-eacd-40ab-b7f7-2f7f2bb7ce55.svg" alt="wakatime"></a>
-
-- **Tahmid Amir** (20220204082)
-- **Saobia Islam Tinni** (20220204088)
-[![Saobia Tinni](https://wakatime.com/badge/user/7f0860ba-774e-43d9-8390-34249079bba4/project/b0e6b1b7-ce1d-407c-8cd9-4264edccfc26.svg)](https://wakatime.com/badge/user/7f0860ba-774e-43d9-8390-34249079bba4/project/b0e6b1b7-ce1d-407c-8cd9-4264edccfc26)
-- **Nusrat Jahan Mim** (20220204092)
-
+| Member | ID No. | WakaTime |
+|--------|----------|----------|
+| **Tahmid Khan** | 20220204086 | [![Tahmid Khan](https://wakatime.com/badge/user/894dfb31-0f9f-49e6-8d27-968cdd668e2d/project/3ea3fcd1-eacd-40ab-b7f7-2f7f2bb7ce55.svg)](https://wakatime.com/badge/user/894dfb31-0f9f-49e6-8d27-968cdd668e2d/project/3ea3fcd1-eacd-40ab-b7f7-2f7f2bb7ce55) |
+| **Tahmid Amir** | 20220204082 | — |
+| **Saobia Islam Tinni** | 20220204088 | [![Saobia Tinni](https://wakatime.com/badge/user/7f0860ba-774e-43d9-8390-34249079bba4/project/b0e6b1b7-ce1d-407c-8cd9-4264edccfc26.svg)](https://wakatime.com/badge/user/7f0860ba-774e-43d9-8390-34249079bba4/project/b0e6b1b7-ce1d-407c-8cd9-4264edccfc26) |
+| **Nusrat Jahan Mim** | 20220204092 | — |
 ---
 
 ## 📄 License
