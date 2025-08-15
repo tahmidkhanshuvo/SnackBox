@@ -4,6 +4,10 @@
 **Course:** CSE 3100  
 A web-based system to streamline the operations of institutional canteens — from ordering to inventory and real-time analytics.
 
+[![Tahmid Khan](https://wakatime.com/badge/user/894dfb31-0f9f-49e6-8d27-968cdd668e2d/project/3ea3fcd1-eacd-40ab-b7f7-2f7f2bb7ce55.svg)](https://wakatime.com/badge/user/894dfb31-0f9f-49e6-8d27-968cdd668e2d/project/3ea3fcd1-eacd-40ab-b7f7-2f7f2bb7ce55)
+
+[![Saobia Tinni](https://wakatime.com/badge/user/7f0860ba-774e-43d9-8390-34249079bba4/project/b0e6b1b7-ce1d-407c-8cd9-4264edccfc26.svg)](https://wakatime.com/badge/user/7f0860ba-774e-43d9-8390-34249079bba4/project/b0e6b1b7-ce1d-407c-8cd9-4264edccfc26)
+
 ---
 
 ## 📖 Table of Contents
