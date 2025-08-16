@@ -1,0 +1,14 @@
+.manager-layout {
+    min-height: 100vh;
+    background-color: #f0fff0; /* Honeydew */
+}
+.manager-header {
+    background-color: #98FB98; /* PaleGreen */
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid #2E8B57;
+}
+.manager-content {
+    padding: 24px 50px;
+}
