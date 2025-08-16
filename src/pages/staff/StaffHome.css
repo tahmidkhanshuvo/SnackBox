@@ -1,0 +1,65 @@
+/* Main layout container for the staff page */
+.staff-layout {
+    min-height: 100vh;
+    /* Use a softer background color for better readability */
+    background-color: #fffbe6; 
+}
+
+/* Header styles */
+.staff-header {
+    background-color: #FFD700; /* Strong yellow for the header */
+    border-bottom: 2px solid #f0c400;
+    padding: 0 24px; /* Use smaller padding for better mobile view */
+    position: sticky;
+    top: 0;
+    z-index: 10;
+}
+
+.header-content {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    max-width: 1200px;
+    margin: 0 auto;
+}
+
+/* Main content area styles */
+.staff-content {
+    padding: 24px;
+}
+
+/* Wrapper to constrain content width on very large screens */
+.content-wrapper {
+    max-width: 1200px;
+    margin: 0 auto;
+}
+
+/* Card styles for dashboard items */
+.staff-card {
+    border: 1px solid #f0c400; /* Yellow border to match the theme */
+    background-color: #ffffff; /* Clean white background for cards */
+    border-radius: 8px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.09);
+    height: 100%;
+}
+
+/* Style the title inside the cards */
+.staff-card .ant-card-head-title {
+    color: #333; /* Dark text color for titles */
+    font-weight: 600;
+}
+
+/* Style the body of the cards for consistent padding */
+.staff-card .ant-card-body {
+    padding: 20px 24px;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .staff-header {
+        padding: 0 16px;
+    }
+    .staff-content {
+        padding: 16px;
+    }
+}

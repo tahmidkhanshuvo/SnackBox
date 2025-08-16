@@ -1,0 +1,20 @@
+.customer-layout {
+    min-height: 100vh;
+    background-color: #8B0000; /* Dark Red */
+}
+.customer-header {
+    background-color: #a52a2a; /* Brownish Red */
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+.customer-content {
+    padding: 24px 50px;
+}
+.welcome-banner {
+    background: white;
+    color: #8B0000;
+    padding: 40px;
+    text-align: center;
+    border-radius: 8px;
+}

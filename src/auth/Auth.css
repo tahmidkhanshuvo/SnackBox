@@ -1,0 +1,73 @@
+.auth-container {
+    min-height: 100vh;
+}
+
+.full-height-row {
+    min-height: 100vh;
+}
+
+/* Decorative Panel (Left side, purple) */
+.auth-decorative-panel {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    text-align: center;
+    color: white;
+    padding: 2rem;
+}
+
+.auth-content h1 {
+    color: white !important;
+    font-size: 3.5rem !important;
+    font-weight: bold;
+    margin-bottom: 1rem !important;
+}
+
+.auth-content p {
+    font-size: 1.2rem;
+    opacity: 0.9;
+}
+
+/* Form Panel (Right side, light grey) */
+.auth-form-panel {
+    background-color: #f0f2f5;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 2rem;
+}
+
+.auth-card {
+    width: 100%;
+    max-width: 400px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    border-radius: 12px;
+    border: none;
+    padding: 1rem 1.5rem;
+}
+
+.auth-title {
+    text-align: center;
+    margin-bottom: 2rem !important;
+}
+
+/* --- FIX: Updated button style to match the solid green in both images --- */
+.auth-card .ant-btn-primary {
+    background: #69a351; /* The solid green from your images */
+    border-color: #69a351; /* Matching border */
+    height: 48px;
+    font-size: 1.1rem;
+    font-weight: bold;
+    border-radius: 8px;
+}
+
+.auth-card .ant-btn-primary:hover {
+    background: #579040; /* Slightly darker green on hover */
+    border-color: #579040;
+}
+
+/* --- FIX: Style for the "Login here" / "Register now" link --- */
+.auth-card a {
+    color: #1677ff; /* Standard link blue */
+}
