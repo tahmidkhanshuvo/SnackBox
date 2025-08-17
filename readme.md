@@ -119,7 +119,7 @@ Modern, responsive dashboard with role-based navigation and light/dark theme sup
 ```bash
 git clone https://github.com/your-username/SnackBox.git
 cd SnackBox
-```  
+```
 
 #### Backend (Laravel)
 
