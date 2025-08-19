@@ -9,23 +9,24 @@ class Order extends Model
 {
     use HasFactory;
 
-    protected $primaryKey = 'OrderID';
     protected $fillable = [
-        'UserID', 'Status'
+        'user_id',
+        'status',
+        'has_queue',
+        'order_queue',
+        'total_amount',
+        'payment_status',
+        'qr_code_identifier',
+        'table_identifier',
     ];
 
     public function user()
     {
-        return $this->belongsTo(User::class, 'UserID', 'UserID');
+        return $this->belongsTo(User::class);
     }
 
-    public function orderQueue()
+    public function items()
     {
-        return $this->hasOne(OrderQueue::class, 'OrderID', 'OrderID');
-    }
-
-    public function menuItems()
-    {
-        return $this->belongsToMany(MenuItem::class, 'OrderMenu', 'OrderID', 'ItemID');
+        return $this->hasMany(OrderItem::class);
     }
 }

@@ -9,16 +9,11 @@ class MenuItem extends Model
 {
     use HasFactory;
 
-    protected $primaryKey = 'ItemID';
-    protected $fillable = ['Category', 'Availability', 'Quantity'];
-
-    public function orders()
-    {
-        return $this->belongsToMany(Order::class, 'OrderMenu', 'ItemID', 'OrderID');
-    }
-
-    public function wasteLogs()
-    {
-        return $this->hasMany(WasteLog::class, 'ItemID', 'ItemID');
-    }
+    protected $fillable = [
+        'name',
+        'description',
+        'price',
+        'category',
+        'availability',
+    ];
 }

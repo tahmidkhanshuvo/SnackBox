@@ -3,39 +3,69 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
-use Illuminate\Database\Eloquent\Model;
+use Illuminate\Foundation\Auth\User as Authenticatable;
+use Illuminate\Notifications\Notifiable;
+use Laravel\Sanctum\HasApiTokens;
 
-class User extends Model
+class User extends Authenticatable
 {
-    use HasFactory;
+    use HasApiTokens, HasFactory, Notifiable;
 
-    protected $primaryKey = 'UserID';
+    /**
+     * The attributes that are mass assignable.
+     *
+     * @var array<int, string>
+     */
     protected $fillable = [
-        'FirstName', 'LastName', 'ContactNo', 'Email', 'FullName', 'TotalSpent'
+        'first_name',
+        'last_name',
+        'email',
+        'password',
+        'contact_no',
+        'role',
     ];
 
-    public function subscriptions()
+    /**
+     * The attributes that should be hidden for serialization.
+     *
+     * @var array<int, string>
+     */
+    protected $hidden = [
+        'password',
+        'remember_token',
+    ];
+
+    /**
+     * Get the attributes that should be cast.
+     *
+     * @return array<string, string>
+     */
+    protected function casts(): array
     {
-        return $this->hasOne(Subscription::class, 'UserID', 'UserID');
+        return [
+            'email_verified_at' => 'datetime',
+            'password' => 'hashed',
+        ];
+    }
+
+    public function getFullNameAttribute()
+    {
+        return "{$this->first_name} {$this->last_name}";
+    }
+
+    /**
+     * Check if the user has a specific role.
+     *
+     * @param string $role
+     * @return bool
+     */
+    public function hasRole(string $role): bool
+    {
+        return $this->role === $role;
     }
 
     public function orders()
     {
-        return $this->hasMany(Order::class, 'UserID', 'UserID');
-    }
-
-    public function feedbacks()
-    {
-        return $this->hasMany(Feedback::class, 'UserID', 'UserID');
-    }
-
-    public function complaints()
-    {
-        return $this->hasMany(Complaint::class, 'UserID', 'UserID');
-    }
-
-    public function account()
-    {
-        return $this->hasOne(UserAccount::class, 'UserID', 'UserID');
+        return $this->hasMany(Order::class);
     }
 }
