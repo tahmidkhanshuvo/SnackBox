@@ -2,40 +2,43 @@
 
 namespace App\Models;
 
+use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
-use Illuminate\Database\Eloquent\Model;
+use Illuminate\Foundation\Auth\User as Authenticatable;
+use Illuminate\Notifications\Notifiable;
+use Laravel\Sanctum\HasApiTokens;
 
-class User extends Model
+class User extends Authenticatable
 {
-    use HasFactory;
+    use HasApiTokens, HasFactory, Notifiable;
 
-    protected $primaryKey = 'UserID';
+    /**
+     * The attributes that are mass assignable.
+     * Adjust according to your users table.
+     */
     protected $fillable = [
-        'FirstName', 'LastName', 'ContactNo', 'Email', 'FullName', 'TotalSpent'
+        'name',
+        'first_name',
+        'last_name',
+        'email',
+        'password',
+        'contact_no',
+        'account_id',
+        'role',
     ];
 
-    public function subscriptions()
-    {
-        return $this->hasOne(Subscription::class, 'UserID', 'UserID');
-    }
+    /**
+     * The attributes hidden for arrays / JSON.
+     */
+    protected $hidden = [
+        'password',
+        'remember_token',
+    ];
 
-    public function orders()
-    {
-        return $this->hasMany(Order::class, 'UserID', 'UserID');
-    }
-
-    public function feedbacks()
-    {
-        return $this->hasMany(Feedback::class, 'UserID', 'UserID');
-    }
-
-    public function complaints()
-    {
-        return $this->hasMany(Complaint::class, 'UserID', 'UserID');
-    }
-
-    public function account()
-    {
-        return $this->hasOne(UserAccount::class, 'UserID', 'UserID');
-    }
+    /**
+     * Attribute casting.
+     */
+    protected $casts = [
+        'email_verified_at' => 'datetime',
+    ];
 }
