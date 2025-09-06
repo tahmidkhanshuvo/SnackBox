@@ -7,10 +7,10 @@ return [
 
     'allowed_methods' => ['*'],
 
-    // Your Vite dev server
-    'allowed_origins' => [env('FRONTEND_URL', 'http://snackbox.test:5173')],
+    // Accept multiple origins from a CSV env var
+    'allowed_origins' => explode(',', env('CORS_ALLOWED_ORIGINS', 'http://snackbox.test:5173,http://localhost:5173,http://127.0.0.1:5173')),
 
-    // keep patterns empty unless you need wildcards
+    // Keep patterns empty unless you need wildcards
     'allowed_origins_patterns' => [],
 
     'allowed_headers' => ['*'],

@@ -21,11 +21,13 @@ class Staff extends Model
         'position',
         'hired_at',
         'is_active',
+        'shift_id',
     ];
 
     protected $casts = [
         'hired_at'  => 'date',
         'is_active' => 'boolean',
+        'shift_id'  => 'integer',
     ];
 
     /* Relationships */
@@ -43,6 +45,11 @@ class Staff extends Model
     public function handledComplaints()
     {
         return $this->hasMany(Complaint::class, 'handled_by');
+    }
+
+    public function shift()
+    {
+        return $this->belongsTo(Shift::class);
     }
 
     /* Helpers */

@@ -9,16 +9,17 @@ use Illuminate\Validation\Rule;
 class StaffController extends Controller
 {
     /**
-     * GET /api/staff?q=&active=&position=&per_page=
+     * GET /api/staff?q=&active=&position=&shift_id=&per_page=
      */
     public function index(Request $request)
     {
-        $q        = $request->string('q')->toString();
-        $active   = $request->input('active', null);
-        $position = $request->string('position')->toString();
-        $perPage  = (int) $request->input('per_page', 15);
+        $q         = $request->string('q')->toString();
+        $active    = $request->input('active', null);
+        $position  = $request->string('position')->toString();
+        $shiftId   = $request->input('shift_id', null);
+        $perPage   = (int) $request->input('per_page', 15);
 
-        $query = Staff::query();
+        $query = Staff::query()->with('shift');
 
         if ($q !== '') {
             $query->where(function ($w) use ($q) {
@@ -31,14 +32,22 @@ class StaffController extends Controller
 
         if (!is_null($active)) {
             $bool = filter_var($active, FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE);
-            if (!is_null($bool)) $query->where('is_active', $bool);
+            if (!is_null($bool)) {
+                $query->where('is_active', $bool);
+            }
         }
 
         if ($position !== '') {
             $query->where('position', $position);
         }
 
-        return response()->json($query->orderBy('first_name')->paginate($perPage));
+        if (!is_null($shiftId) && $shiftId !== '') {
+            $query->where('shift_id', (int) $shiftId);
+        }
+
+        return response()->json(
+            $query->orderBy('first_name')->paginate($perPage)
+        );
     }
 
     /**
@@ -55,11 +64,12 @@ class StaffController extends Controller
             'position'   => ['nullable','string','max:100'],
             'hired_at'   => ['nullable','date'],
             'is_active'  => ['nullable','boolean'],
+            'shift_id'   => ['nullable','integer','exists:shifts,id'],
         ]);
 
         $staff = Staff::create($data + ['is_active' => $data['is_active'] ?? true]);
 
-        return response()->json($staff, 201);
+        return response()->json($staff->load('shift'), 201);
     }
 
     /**
@@ -67,7 +77,7 @@ class StaffController extends Controller
      */
     public function show(Staff $staff)
     {
-        return response()->json($staff);
+        return response()->json($staff->load('shift'));
     }
 
     /**
@@ -84,11 +94,12 @@ class StaffController extends Controller
             'position'   => ['sometimes','nullable','string','max:100'],
             'hired_at'   => ['sometimes','nullable','date'],
             'is_active'  => ['sometimes','boolean'],
+            'shift_id'   => ['sometimes','nullable','integer','exists:shifts,id'],
         ]);
 
         $staff->fill($data)->save();
 
-        return response()->json($staff->fresh());
+        return response()->json($staff->fresh()->load('shift'));
     }
 
     /**
