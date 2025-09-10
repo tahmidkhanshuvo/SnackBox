@@ -95,5 +95,5 @@ Route::middleware(['web', 'auth:sanctum'])->group(function () {
     Route::get('/orders/{order}',                           [OrderController::class, 'show']);
     Route::post('/orders/{order}/items',                    [OrderController::class, 'addItem']);
     Route::delete('/orders/{order}/items/{orderItem}',      [OrderController::class, 'removeItem']);
-    Route::patch('/orders/{order}/status}',                 [OrderController::class, 'updateStatus']); // note: extra brace fixed below
+    Route::patch('/orders/{order}/status',                 [OrderController::class, 'updateStatus']); // note: extra brace fixed below
 });
