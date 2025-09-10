@@ -3,7 +3,7 @@ import React from "react";
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 
 // Pages
-import CustomerHome from "./pages/customer/CustomerHome";
+import Demo from"./Demo";
 // import Login from "./pages/Login";
 // import Register from "./pages/Register";
 // import StaffHome from "./pages/staff/StaffHome";
@@ -14,7 +14,7 @@ const App = () => {
     <Router>
       <Routes>
         {/* Customer Home Page */}
-        <Route path="/" element={<CustomerHome />} />
+        <Route path="/" element={<Demo />} />
 
         {/* Future Routes */}
         {/* <Route path="/login" element={<Login />} /> */}

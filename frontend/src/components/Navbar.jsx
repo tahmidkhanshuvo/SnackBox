@@ -1,80 +1,72 @@
-"use client";
-import {
-  Navbar,
-  NavBody,
-  NavItems,
-  MobileNav,
-  NavbarLogo,
-  NavbarButton,
-  MobileNavHeader,
-  MobileNavToggle,
-  MobileNavMenu,
-} from "@/components/ui/resizable-navbar";
-import { useState } from "react";
+import React, { useState } from "react";
+import { LogoutOutlined, BulbOutlined } from "@ant-design/icons";
+import { Link } from "react-router-dom";
 
-export default function Navbar() {
-  const navItems = [
-    { name: "Features", link: "#features" },
-    { name: "Pricing", link: "#pricing" },
-    { name: "Contact", link: "#contact" },
-  ];
+const Navbar = ({ isLoggedIn = true, onLogout }) => {
+  const [darkMode, setDarkMode] = useState(false);
 
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const toggleTheme = () => {
+    setDarkMode(!darkMode);
+    document.body.setAttribute("data-theme", darkMode ? "light" : "dark");
+  };
 
   return (
-    <Navbar>
-      {/* Desktop Navigation */}
-      <NavBody>
-        <NavbarLogo />
-        <NavItems items={navItems} />
-        <div className="flex items-center gap-4">
-          <NavbarButton variant="secondary">Login</NavbarButton>
-          <NavbarButton variant="primary">Book a call</NavbarButton>
-        </div>
-      </NavBody>
+    <nav
+      style={{
+        display: "flex",
+        justifyContent: "space-between",
+        alignItems: "center",
+        backgroundColor: "rgb(178, 34, 34)", // fresh meat red
+        color: "#f5f5f0", // pearl
+        padding: "12px 24px",
+        fontWeight: "bold",
+        position: "sticky",
+        top: 0,
+        zIndex: 1000,
+      }}
+    >
+      {/* Left - Brand */}
+      <Link
+        to="/"
+        style={{
+          textDecoration: "none",
+          color: "#f5f5f0",
+          fontSize: "22px",
+          fontWeight: "700",
+        }}
+      >
+        SnackBox
+      </Link>
 
-      {/* Mobile Navigation */}
-      <MobileNav>
-        <MobileNavHeader>
-          <NavbarLogo />
-          <MobileNavToggle
-            isOpen={isMobileMenuOpen}
-            onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-          />
-        </MobileNavHeader>
+      {/* Right - Theme + Logout */}
+      <div style={{ display: "flex", alignItems: "center", gap: "18px" }}>
+        <BulbOutlined
+          onClick={toggleTheme}
+          style={{ fontSize: "22px", cursor: "pointer", color: "#f5f5f0" }}
+        />
 
-        <MobileNavMenu
-          isOpen={isMobileMenuOpen}
-          onClose={() => setIsMobileMenuOpen(false)}
+        {/* FORCE SHOW logout button for debug */}
+        <button
+          onClick={onLogout}
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: "6px",
+            backgroundColor: "yellow", // 🔥 bright color to check visibility
+            color: "black",
+            border: "2px solid black",
+            padding: "6px 12px",
+            borderRadius: "6px",
+            fontWeight: "600",
+            cursor: "pointer",
+          }}
         >
-          {navItems.map((item, idx) => (
-            <a
-              key={`mobile-link-${idx}`}
-              href={item.link}
-              onClick={() => setIsMobileMenuOpen(false)}
-              className="relative text-neutral-600 dark:text-neutral-300"
-            >
-              <span className="block">{item.name}</span>
-            </a>
-          ))}
-          <div className="flex w-full flex-col gap-4 mt-4">
-            <NavbarButton
-              onClick={() => setIsMobileMenuOpen(false)}
-              variant="primary"
-              className="w-full"
-            >
-              Login
-            </NavbarButton>
-            <NavbarButton
-              onClick={() => setIsMobileMenuOpen(false)}
-              variant="primary"
-              className="w-full"
-            >
-              Book a call
-            </NavbarButton>
-          </div>
-        </MobileNavMenu>
-      </MobileNav>
-    </Navbar>
+          <LogoutOutlined />
+          Logout
+        </button>
+      </div>
+    </nav>
   );
-}
+};
+
+export default Navbar;

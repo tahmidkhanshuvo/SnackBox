@@ -6,14 +6,18 @@ import {
   useSpring,
   useTransform,
   useMotionTemplate,
-} from "motion/react";
+} from "framer-motion";
 import { cn } from "@/lib/utils";
 
 export const CometCard = ({
   rotateDepth = 17.5,
   translateDepth = 20,
   className,
-  children
+  children,
+  image,
+  title,
+  description,
+  buttonText
 }) => {
   const ref = useRef(null);
 
@@ -77,7 +81,37 @@ export const CometCard = ({
           z: 50,
           transition: { duration: 0.2 },
         }}
-        className="relative rounded-2xl">
+        className="relative rounded-2xl bg-white overflow-hidden">
+        {/* Image */}
+        {image && (
+          <div className="w-full h-48 overflow-hidden">
+            <img 
+              src={image} 
+              alt={title || "Card image"} 
+              className="w-full h-full object-cover"
+            />
+          </div>
+        )}
+        
+        {/* Content */}
+        <div className="p-6">
+          {title && (
+            <h3 className="text-xl font-semibold text-gray-900 mb-2">
+              {title}
+            </h3>
+          )}
+          {description && (
+            <p className="text-gray-600 mb-4">
+              {description}
+            </p>
+          )}
+          {buttonText && (
+            <button className="w-full bg-blue-500 text-white py-2 px-4 rounded-lg hover:bg-blue-600 transition-colors">
+              {buttonText}
+            </button>
+          )}
+        </div>
+        
         {children}
         <motion.div
           className="pointer-events-none absolute inset-0 z-50 h-full w-full rounded-[16px] mix-blend-overlay"
