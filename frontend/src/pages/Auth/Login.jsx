@@ -54,7 +54,7 @@ export default function Login() {
           <div className="mx-auto w-12 h-12 rounded-full bg-orange-500 flex items-center justify-center text-white text-xl font-bold">
             🍽️
           </div>
-          <h1 className="text-2xl font-semibold mt-3">Smart Canteen</h1>
+          <h1 className="text-2xl font-semibold mt-3">SNACKBOX</h1>
           <p className="text-gray-500">AI-Powered Canteen Management System</p>
         </div>
 

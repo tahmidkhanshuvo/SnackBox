@@ -7,9 +7,8 @@ import {
   useLocation,
 } from "react-router-dom";
 
-// Auth pages
-import Login from "./pages/Auth/Login";
-import SignUp from "./pages/Auth/SignUp";
+// Combined Auth page (Login + Sign Up)
+import LoginAndSignUp from "./pages/Auth/Login&SignUp";
 
 // Dashboards
 import AdminDashboard from "./pages/Admin/AdminDashboard";
@@ -22,11 +21,9 @@ const RequireAuth = ({ role, children }) => {
   const currentUser = JSON.parse(localStorage.getItem("currentUser") || "null");
 
   if (!currentUser) {
-    // not logged in → go to login
     return <Navigate to="/" state={{ from: location }} replace />;
   }
   if (role && currentUser.role !== role) {
-    // wrong role → send to their own dashboard
     const map = { admin: "/admin", staff: "/staff", customer: "/customer" };
     return <Navigate to={map[currentUser.role] || "/"} replace />;
   }
@@ -37,9 +34,8 @@ export default function App() {
   return (
     <BrowserRouter>
       <Routes>
-        {/* On app start → Login page */}
-        <Route path="/" element={<Login />} />
-        <Route path="/signup" element={<SignUp />} />
+        {/* App starts at the combined Auth page */}
+        <Route path="/" element={<LoginAndSignUp />} />
 
         {/* Protected dashboards */}
         <Route
