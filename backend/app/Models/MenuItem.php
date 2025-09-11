@@ -11,10 +11,17 @@ class MenuItem extends Model
 {
     use HasFactory;
 
-    protected $fillable = ['item_name', 'category', 'availability', 'image_path', 'image_alt'];
+    // UPDATED: Added 'price' to the fillable attributes
+    protected $fillable = ['item_name', 'category', 'price', 'availability', 'image_path', 'image_alt'];
 
     // expose computed fields
     protected $appends = ['stock', 'image_url'];
+    
+    // NEW: Cast the price to a decimal with 2 places
+    protected $casts = [
+        'price' => 'decimal:2',
+        'availability' => 'boolean',
+    ];
 
     public function orderItems()
     {

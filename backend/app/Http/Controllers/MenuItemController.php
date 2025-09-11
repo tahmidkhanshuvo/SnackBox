@@ -15,19 +15,19 @@ class MenuItemController extends Controller
      */
     public function index(Request $request)
     {
-        $q         = $request->string('q')->toString();
-        $category  = $request->string('category')->toString();
-        $avail     = $request->input('availability', null);
-        $sortBy    = $request->input('sortBy', 'item_name');
-        $sortDir   = strtolower($request->input('sortDir', 'asc')) === 'desc' ? 'desc' : 'asc';
-        $perPage   = (int) ($request->input('per_page', 10));
+        $q        = $request->string('q')->toString();
+        $category = $request->string('category')->toString();
+        $avail    = $request->input('availability', null);
+        $sortBy   = $request->input('sortBy', 'item_name');
+        $sortDir  = strtolower($request->input('sortDir', 'asc')) === 'desc' ? 'desc' : 'asc';
+        $perPage  = (int) ($request->input('per_page', 10));
 
         $query = MenuItem::query();
 
         if ($q !== '') {
             $query->where(function ($w) use ($q) {
                 $w->where('item_name', 'like', "%{$q}%")
-                  ->orWhere('category', 'like', "%{$q}%");
+                    ->orWhere('category', 'like', "%{$q}%");
             });
         }
 
@@ -43,7 +43,7 @@ class MenuItemController extends Controller
         }
 
         // only allow sorting by known columns
-        if (!in_array($sortBy, ['item_name','category','availability','created_at'], true)) {
+        if (!in_array($sortBy, ['item_name','price','category','availability','created_at'], true)) {
             $sortBy = 'item_name';
         }
 
@@ -62,22 +62,24 @@ class MenuItemController extends Controller
 
     /**
      * POST /api/menu-items
-     * Body: { item_name, category?, availability? }  (JSON)
-     * Optional multipart image upload also supported if you send "image"
+     * Body: { item_name, price, category?, availability? }  (JSON)
      */
     public function store(Request $request)
     {
+        // UPDATED: Added 'price' to validation rules
         $data = $request->validate([
             'item_name'    => ['required','string','max:255'],
+            'price'        => ['required','numeric','min:0'],
             'category'     => ['nullable','string','max:255'],
             'availability' => ['nullable','boolean'],
-            // allow image on create for convenience
             'image'        => ['sometimes','file','image','mimes:jpg,jpeg,png,webp','max:2048'],
             'image_alt'    => ['nullable','string','max:255'],
         ]);
 
+        // UPDATED: Added 'price' to the create call
         $menuItem = MenuItem::create([
             'item_name'    => $data['item_name'],
+            'price'        => $data['price'],
             'category'     => $data['category'] ?? null,
             'availability' => array_key_exists('availability', $data) ? (bool)$data['availability'] : true,
             'image_path'   => null,
@@ -88,17 +90,19 @@ class MenuItemController extends Controller
             $this->storeImage($request, $menuItem);
         }
 
-        return response()->json($menuItem->fresh(), 201);
+        return response()->json($menuItem->fresh(), 21);
     }
 
     /**
      * PUT /api/menu-items/{menuItem}
-     * Body: { item_name?, category?, availability?, image? (optional), image_alt? }
+     * Body: { item_name?, price?, category?, availability?, image? (optional), image_alt? }
      */
     public function update(Request $request, MenuItem $menuItem)
     {
+        // UPDATED: Added 'price' to validation rules
         $data = $request->validate([
             'item_name'    => ['sometimes','string','max:255'],
+            'price'        => ['sometimes','numeric','min:0'],
             'category'     => ['sometimes','nullable','string','max:255'],
             'availability' => ['sometimes','boolean'],
             'image'        => ['sometimes','file','image','mimes:jpg,jpeg,png,webp','max:2048'],
@@ -120,7 +124,6 @@ class MenuItemController extends Controller
 
     /**
      * POST /api/menu-items/{menuItem}/image (multipart/form-data)
-     * Fields: image (file), image_alt? (string)
      */
     public function uploadImage(Request $request, MenuItem $menuItem)
     {
@@ -144,7 +147,6 @@ class MenuItemController extends Controller
      */
     public function destroy(MenuItem $menuItem)
     {
-        // delete old image file if present
         if ($menuItem->image_path) {
             Storage::disk('public')->delete($menuItem->image_path);
         }
@@ -158,8 +160,7 @@ class MenuItemController extends Controller
     private function storeImage(Request $request, MenuItem $menuItem): void
     {
         $file = $request->file('image');
-        $path = $file->store('menu_items', 'public'); // storage/app/public/menu_items/...
-        // delete old if exists
+        $path = $file->store('menu_items', 'public');
         if ($menuItem->image_path) {
             Storage::disk('public')->delete($menuItem->image_path);
         }

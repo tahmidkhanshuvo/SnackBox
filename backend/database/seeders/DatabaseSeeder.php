@@ -31,10 +31,12 @@ class DatabaseSeeder extends Seeder
 
         // --- Menu Items (no images seeded here; you can upload later via API) ---
         $itemsData = [
-            ['item_name' => 'Chicken Sandwich', 'category' => 'Snacks', 'availability' => true],
-            ['item_name' => 'Veggie Wrap',      'category' => 'Snacks', 'availability' => true],
-            ['item_name' => 'Iced Coffee',      'category' => 'Drinks', 'availability' => true],
-            ['item_name' => 'Hot Tea',          'category' => 'Drinks', 'availability' => true],
+            ['item_name' => 'Chicken Sandwich', 'category' => 'Snacks', 'price' => 5.99, 'availability' => true],
+            ['item_name' => 'Veggie Wrap',      'category' => 'Snacks', 'price' => 4.99, 'availability' => true],
+            ['item_name' => 'Iced Coffee',      'category' => 'Drinks', 'price' => 2.50, 'availability' => true],
+            ['item_name' => 'Hot Tea',          'category' => 'Drinks', 'price' => 1.99, 'availability' => false],
+            ['item_name' => 'Caesar Salad',     'category' => 'Salads', 'price' => 6.50, 'availability' => true],
+            ['item_name' => 'Fruit Bowl',       'category' => 'Salads', 'price' => 3.99, 'availability' => true],
         ];
 
         $items = [];

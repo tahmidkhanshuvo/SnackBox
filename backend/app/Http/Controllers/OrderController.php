@@ -44,7 +44,7 @@ class OrderController extends Controller
     public function show(Order $order)
     {
         return response()->json(
-            $order->load(['items.menuItem:id,item_name,category', 'user:id,name,email'])
+            $order->load(['items.menuItem:id,item_name,category,price', 'user:id,name,email'])
         );
     }
 
@@ -52,43 +52,48 @@ class OrderController extends Controller
      * POST /api/orders
      * Body:
      * {
-     *   "reference": "POS-1001",
-     *   "payment_method": "cash",
-     *   "items": [
-     *     { "menu_item_id": 1, "quantity": 2, "unit_price": 120.00 },
-     *     { "menu_item_id": 3, "quantity": 1, "unit_price": 80.00 }
-     *   ]
+     * "items": [
+     * { "menu_item_id": 1, "quantity": 2 },
+     * { "menu_item_id": 3, "quantity": 1 }
+     * ]
      * }
      */
     public function store(Request $request)
     {
         $data = $request->validate([
-            'reference'       => ['nullable','string','max:100'],
-            'payment_method'  => ['nullable','string','max:50'],
-            'items'           => ['sometimes','array','min:1'],
+            'reference'            => ['nullable','string','max:100'],
+            'payment_method'       => ['nullable','string','max:50'],
+            'items'                => ['required','array','min:1'],
             'items.*.menu_item_id' => ['required','exists:menu_items,id'],
             'items.*.quantity'     => ['required','integer','min:1'],
-            'items.*.unit_price'   => ['required','numeric','min:0'],
         ]);
 
         $order = DB::transaction(function () use ($request, $data) {
             $order = Order::create([
-                'user_id'        => optional($request->user())->id,
+                'user_id'        => $request->user()->id,
                 'subtotal'       => 0,
                 'tax'            => 0,
                 'discount'       => 0,
                 'total'          => 0,
                 'status'         => Order::STATUS_PENDING,
-                'payment_method' => $data['payment_method'] ?? null,
+                'payment_method' => $data['payment_method'] ?? 'online',
                 'reference'      => $data['reference'] ?? null,
             ]);
 
+            $menuItemIds = collect($data['items'])->pluck('menu_item_id')->unique();
+            $menuItems = MenuItem::findMany($menuItemIds)->keyBy('id');
+
             foreach (($data['items'] ?? []) as $line) {
+                $menuItem = $menuItems->get($line['menu_item_id']);
+
+                if (!$menuItem || !isset($menuItem->price)) {
+                    throw new \Exception('Invalid menu item or price not set for item ID: ' . $line['menu_item_id']);
+                }
+
                 $order->items()->create([
                     'menu_item_id' => $line['menu_item_id'],
                     'quantity'     => $line['quantity'],
-                    'unit_price'   => $line['unit_price'],
-                    // line_total auto-calculated in OrderItem::saving()
+                    'unit_price'   => $menuItem->price,
                 ]);
             }
 
@@ -103,7 +108,6 @@ class OrderController extends Controller
     /**
      * POST /api/orders/{order}/items
      * Body: { menu_item_id, quantity, unit_price, merge? (bool) }
-     * If merge=true and the item exists, quantity will be added to the existing line.
      */
     public function addItem(Request $request, Order $order)
     {
@@ -115,12 +119,11 @@ class OrderController extends Controller
         ]);
 
         $merge = (bool) ($data['merge'] ?? true);
-
         $item = $order->items()->where('menu_item_id', $data['menu_item_id'])->first();
 
         if ($item && $merge) {
             $item->quantity += $data['quantity'];
-            $item->unit_price = $data['unit_price']; // latest price wins
+            $item->unit_price = $data['unit_price'];
             $item->save();
         } else {
             $item = $order->items()->create([
@@ -130,7 +133,6 @@ class OrderController extends Controller
             ]);
         }
 
-        // subtotal/total recalculated by OrderItem events
         return response()->json($order->fresh()->load('items.menuItem'));
     }
 
@@ -142,21 +144,18 @@ class OrderController extends Controller
         if ($orderItem->order_id !== $order->id) {
             return response()->json(['message' => 'Item does not belong to this order'], 404);
         }
-
         $orderItem->delete();
-
         return response()->json($order->fresh()->load('items.menuItem'));
     }
 
     /**
      * PATCH /api/orders/{order}/status
      * Body: { status, allow_negative? (bool) }
-     * When moving to 'confirmed', we deduct stock by creating inventory movements (type='out').
      */
     public function updateStatus(Request $request, Order $order)
     {
         $data = $request->validate([
-            'status'         => ['required', Rule::in([
+            'status' => ['required', Rule::in([
                 Order::STATUS_PENDING, Order::STATUS_CONFIRMED, Order::STATUS_PREPARING,
                 Order::STATUS_READY, Order::STATUS_PICKED_UP, Order::STATUS_COMPLETED,
                 Order::STATUS_CANCELLED
@@ -167,13 +166,11 @@ class OrderController extends Controller
         $new = $data['status'];
         $allowNegative = (bool) ($data['allow_negative'] ?? false);
 
-        // If confirming, write inventory movements (once)
         if ($new === Order::STATUS_CONFIRMED) {
             $ref = "ORD-{$order->id}";
             $already = InventoryMovement::where('reference', $ref)->exists();
 
             if (! $already) {
-                // check stock
                 $insufficient = [];
                 foreach ($order->items()->with('menuItem')->get() as $line) {
                     $stock = (int) $line->menuItem->stock;
@@ -215,3 +212,4 @@ class OrderController extends Controller
         return response()->json($order->fresh()->load('items.menuItem'));
     }
 }
+
