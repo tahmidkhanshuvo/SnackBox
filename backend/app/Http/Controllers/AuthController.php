@@ -3,9 +3,11 @@
 namespace App\Http\Controllers;
 
 use App\Models\User;
+use App\Models\Staff; // Import the Staff model
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Validation\Rule; // Import the Rule class for validation
 use Illuminate\Validation\Rules\Password;
 use Illuminate\Validation\ValidationException;
 
@@ -13,7 +15,7 @@ class AuthController extends Controller
 {
     /**
      * POST /api/auth/register
-     * Expects: { name, email, password, password_confirmation }
+     * Expects: { name, email, password, password_confirmation, account_type }
      * Returns: { message, user }
      */
     public function register(Request $request)
@@ -22,6 +24,8 @@ class AuthController extends Controller
             'name'                  => ['required', 'string', 'max:255'],
             'email'                 => ['required', 'email', 'max:255', 'unique:users,email'],
             'password'              => ['required', 'confirmed', Password::min(8)],
+            // Add validation for the account type from the frontend form
+            'account_type'          => ['required', 'string', Rule::in(['customer', 'staff'])],
         ]);
 
         $user = User::create([
@@ -30,9 +34,26 @@ class AuthController extends Controller
             'password' => Hash::make($data['password']),
         ]);
 
-        // Auto-login newly registered user (session-based SPA)
+        // --- NEW LOGIC: Create a Staff record if the account type is 'staff' ---
+        if ($data['account_type'] === 'staff') {
+            // Split the full name into first and last names for the staff record
+            $nameParts = explode(' ', $data['name'], 2);
+
+            Staff::create([
+                'user_id'    => $user->id,
+                'first_name' => $nameParts[0],
+                'last_name'  => $nameParts[1] ?? '', // Handle cases with only a first name
+                'email'      => $user->email,
+                'is_active'  => true, // Set staff as active by default
+            ]);
+        }
+        
+        // Auto-login newly registered user
         Auth::login($user, remember: false);
         $request->session()->regenerate();
+
+        // Eager load the 'staff' relationship so the frontend knows the user's role
+        $user->load('staff');
 
         return response()->json([
             'message' => 'Registered',
@@ -42,8 +63,6 @@ class AuthController extends Controller
 
     /**
      * POST /api/auth/login
-     * Expects: { email, password, remember? }
-     * For SPA: call GET /sanctum/csrf-cookie first
      */
     public function login(Request $request)
     {
@@ -59,13 +78,18 @@ class AuthController extends Controller
                 'email' => ['The provided credentials are incorrect.'],
             ]);
         }
-
-        // Prevent session fixation
+        
         $request->session()->regenerate();
+
+        /** @var \App\Models\User $user */
+        $user = Auth::user();
+
+        // Eager load the 'staff' relationship on login
+        $user->load('staff');
 
         return response()->json([
             'message' => 'Logged in',
-            'user'    => Auth::user(),
+            'user'    => $user,
         ]);
     }
 
@@ -74,9 +98,13 @@ class AuthController extends Controller
      */
     public function me(Request $request)
     {
-        return response()->json([
-            'user' => $request->user(),
-        ]);
+        /** @var \App\Models\User $user */
+        $user = $request->user();
+
+        // Eager load the 'staff' relationship when checking the session
+        $user->load('staff');
+
+        return response()->json($user);
     }
 
     /**
@@ -92,11 +120,10 @@ class AuthController extends Controller
         return response()->noContent();
     }
 
+    // --- Token-based methods remain unchanged ---
+
     /**
      * POST /api/auth/token
-     * Body: { email, password }
-     * Returns: { token, user }
-     * No cookies, no CSRF: use Authorization: Bearer <token> afterwards.
      */
     public function tokenLogin(Request $request)
     {
@@ -112,7 +139,8 @@ class AuthController extends Controller
         }
 
         /** @var \App\Models\User $user */
-        $user = $request->user();
+        $user = Auth::user();
+        $user->load('staff'); // Also load staff relationship for token login
         $token = $user->createToken('api')->plainTextToken;
 
         return response()->json([
@@ -123,7 +151,6 @@ class AuthController extends Controller
 
     /**
      * POST /api/auth/token/logout (auth:sanctum via token)
-     * Revokes the current personal access token.
      */
     public function tokenLogout(Request $request)
     {
