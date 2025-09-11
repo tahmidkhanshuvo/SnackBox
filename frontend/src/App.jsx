@@ -1,14 +1,11 @@
-import { useState } from 'react'
-import './App.css'
-import LoginPage from './pages/Login'; // Import LoginPage
+import './App.css';
+import LoginPage from './pages/Login'; // Importing the new Login/Signup page
 
 function App() {
   return (
-    <>
-      <div>
-        <LoginPage /> {/* Render LoginPage */}
-      </div>
-    </>
+    <div>
+      <LoginPage /> {/* Render the Login/Signup page */}
+    </div>
   );
 }
 
