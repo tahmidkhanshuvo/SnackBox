@@ -14,15 +14,32 @@ use Illuminate\Validation\Rule;
 
 class OrderController extends Controller
 {
-    /** Helper: detect staff/admin without assuming a specific role schema */
+    /** Helper: detect staff/admin across common schemas (role field, boolean flags, or staff table) */
     private function isStaff(?User $user): bool
     {
         if (!$user) return false;
-        // Support a few common patterns: booleans and role strings
-        if (property_exists($user, 'is_admin') && $user->is_admin) return true;
-        if (property_exists($user, 'is_staff') && $user->is_staff) return true;
-        $role = $user->role ?? null;
-        return in_array($role, ['admin','manager','staff'], true);
+
+        // Common boolean flags
+        if (isset($user->is_admin) && $user->is_admin) return true;
+        if (isset($user->is_staff) && $user->is_staff) return true;
+
+        // role string patterns
+        $role = strtolower((string) ($user->role ?? ''));
+        if (in_array($role, ['admin','manager','staff'], true)) return true;
+
+        // Relation flag often exposed by API responses (frontend checks user.staff)
+        if (property_exists($user, 'staff') && $user->staff) return true;
+        if (method_exists($user, 'staff') && $user->staff) return true;
+
+        // Fallback: check staff table if it exists
+        try {
+            if (class_exists(\App\Models\Staff::class)) {
+                return \App\Models\Staff::where('user_id', $user->id)->exists();
+            }
+        } catch (\Throwable $e) {
+            // ignore
+        }
+        return false;
     }
 
     /**
@@ -58,12 +75,10 @@ class OrderController extends Controller
         }
 
         if ($isStaff) {
-            // Staff can optionally filter by user_id
             if ($request->filled('user_id')) {
                 $query->where('user_id', $request->input('user_id'));
             }
         } else {
-            // Customer can see ONLY their own orders
             $query->where('user_id', $user?->id ?? 0);
         }
 
@@ -145,10 +160,6 @@ class OrderController extends Controller
         return response()->json($order->fresh()->load('items.menuItem'), 201);
     }
 
-    /**
-     * POST /api/orders/{order}/items
-     * - Non-staff: must be owner AND order must be pending
-     */
     public function addItem(Request $request, Order $order)
     {
         $user = $request->user();
@@ -195,10 +206,6 @@ class OrderController extends Controller
         return response()->json($order->fresh()->load('items.menuItem'));
     }
 
-    /**
-     * DELETE /api/orders/{order}/items/{orderItem}
-     * - Non-staff: must be owner AND order must be pending
-     */
     public function removeItem(Request $request, Order $order, OrderItem $orderItem)
     {
         $user = $request->user();
@@ -220,9 +227,6 @@ class OrderController extends Controller
 
     /**
      * PATCH /api/orders/{order}/status (alias: PATCH /api/orders/{order})
-     * Body: { status, allow_negative? (bool), reason? (string) }
-     * - Non-staff owners can ONLY cancel their own PENDING order.
-     * - Staff can progress/cancel with stock handling.
      */
     public function updateStatus(Request $request, Order $order)
     {
@@ -243,7 +247,6 @@ class OrderController extends Controller
         $isStaff       = $this->isStaff($user);
         $isOwner       = $user && $user->id === $order->user_id;
 
-        // --- Customer self-cancel path (strict) ---
         if ($isOwner && !$isStaff) {
             if ($new !== Order::STATUS_CANCELLED) {
                 return response()->json(['message' => 'You can only cancel your own order.'], 403);
@@ -251,7 +254,6 @@ class OrderController extends Controller
             if ($order->status !== Order::STATUS_PENDING) {
                 return response()->json(['message' => 'Only pending orders can be cancelled.'], 422);
             }
-
             $order->status = Order::STATUS_CANCELLED;
             if ($reason && Schema::hasColumn('orders', 'cancel_reason')) {
                 $order->cancel_reason = $reason;
@@ -261,7 +263,6 @@ class OrderController extends Controller
             return response()->json($order->fresh()->load(['items.menuItem','user:id,name,email','acceptedBy:id,name']));
         }
 
-        // --- Staff/Admin path only from here ---
         if (!$isStaff) {
             return response()->json(['message' => 'Forbidden'], 403);
         }
@@ -270,7 +271,6 @@ class OrderController extends Controller
             return response()->json(['message' => 'Finalized orders cannot be changed.'], 422);
         }
 
-        // On first CONFIRMED: mark who accepted + stock adjust
         if ($new === Order::STATUS_CONFIRMED) {
             if (Schema::hasColumn('orders', 'accepted_by') && empty($order->accepted_by)) {
                 $order->accepted_by = $user?->id;
@@ -318,7 +318,6 @@ class OrderController extends Controller
             }
         }
 
-        // Staff cancel → record reason if provided
         if ($new === Order::STATUS_CANCELLED && $reason && Schema::hasColumn('orders', 'cancel_reason')) {
             $order->cancel_reason = $reason;
         }
