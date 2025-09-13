@@ -3,13 +3,13 @@ import React from "react";
 
 /**
  * GlobalFooter (overlap-proof)
- * - Explicit grid areas on lg/xl
- * - Newsletter spans its own row on lg
- * - Stacking context on newsletter card
+ * - Now supports `theme`: "default" | "staff" | "admin" (staff = green)
+ * - Uses CSS variables; theme overrides them locally on the footer element
  */
 export default function GlobalFooter({
   position = "static",
   className = "",
+  theme = "default", // <— NEW
   brand = {
     name: "SnackBox",
     logo: <span style={{ fontSize: 18 }}>🍽</span>,
@@ -18,7 +18,7 @@ export default function GlobalFooter({
   columns = [
     { title: "Company", links: [{ label: "About", href: "/about" }, { label: "Careers", href: "/careers" }, { label: "Blog", href: "/blog" }] },
     { title: "Support", links: [{ label: "Help Center", href: "/help" }, { label: "Contact", href: "/contact" }, { label: "Refunds", href: "/refunds" }] },
-   // { title: "Legal",   links: [{ label: "Privacy", href: "/privacy" }, { label: "Terms", href: "/terms" }, { label: "Cookies", href: "/cookies" }] },
+    // { title: "Legal",   links: [{ label: "Privacy", href: "/privacy" }, { label: "Terms", href: "/terms" }, { label: "Cookies", href: "/cookies" }] },
   ],
   socials = [
     { label: "X", href: "https://x.com", icon: "𝕏" },
@@ -49,7 +49,6 @@ export default function GlobalFooter({
     e.currentTarget.reset();
   };
 
-  // Normalize a title to a CSS-friendly key so we can assign grid areas
   const areaKey = (t) => {
     const k = String(t || "").toLowerCase().replace(/\s+/g, "");
     return ["company", "support", "legal"].includes(k) ? k : "";
@@ -59,12 +58,32 @@ export default function GlobalFooter({
     <>
       <style>{`
         :root{
-          --sb-primary:#ef4444; --sb-primary-700:#dc2626; --sb-primary-50:#fee2e2;
+          /* Default (brand = red/orange) */
+          --sb-primary:#ef4444;        /* main */
+          --sb-primary-700:#dc2626;    /* dark */
+          --sb-primary-50:#fee2e2;     /* pale */
+          --sb-primary-2:#fb923c;      /* gradient partner */
           --sb-accent:#0f172a; --sb-muted:#6b7280; --sb-pad:18px;
           --sb-card-radius:18px; --sb-ring:0 0 0 3px rgba(239,68,68,.25);
-          --sx-max:1200px;
-          --sx-news-max:460px;
-          --sx-nudge:14px;
+          --sx-max:1200px; --sx-news-max:460px; --sx-nudge:14px;
+        }
+
+        /* ===== Theme overrides (scoped to footer subtree) ===== */
+        .sx-footer[data-theme="staff"]{
+          /* Green staff palette */
+          --sb-primary:#22c55e;       /* emerald-500 */
+          --sb-primary-700:#16a34a;   /* emerald-600 */
+          --sb-primary-50:#dcfce7;    /* emerald-50  */
+          --sb-primary-2:#34d399;     /* emerald-400 for gradients */
+          --sb-ring:0 0 0 3px rgba(34,197,94,.25);
+        }
+        .sx-footer[data-theme="admin"]{
+          /* Optional violet admin palette */
+          --sb-primary:#4f46e5;       /* indigo-600 */
+          --sb-primary-700:#4338ca;   /* indigo-700 */
+          --sb-primary-50:#e0e7ff;    /* indigo-50 */
+          --sb-primary-2:#60a5fa;     /* sky-400 */
+          --sb-ring:0 0 0 3px rgba(79,70,229,.25);
         }
 
         .sx-footer{
@@ -75,7 +94,8 @@ export default function GlobalFooter({
         .sx-footer.is-sticky{ position:sticky; bottom:0; z-index:10; }
         .sx-footer.is-fixed { position:fixed;  bottom:0; left:0; right:0; z-index:20; }
 
-        .sx-accent{ height:3px; background:linear-gradient(90deg, var(--sb-primary), #fb923c); opacity:.9; }
+        /* Uses themed variables for the accent gradient */
+        .sx-accent{ height:3px; background:linear-gradient(90deg, var(--sb-primary), var(--sb-primary-2)); opacity:.9; }
 
         .sx-inner{ max-width:var(--sx-max); margin:0 auto; padding:28px var(--sb-pad); display:grid; gap:28px; }
         @media (min-width:1024px){ .sx-inner{ grid-template-columns:1.2fr 2fr; align-items:start; } }
@@ -86,7 +106,7 @@ export default function GlobalFooter({
         .sx-badge{
           width:40px; height:40px; border-radius:12px; display:grid; place-items:center;
           background:linear-gradient(135deg, var(--sb-primary), var(--sb-primary-700)); color:#fff;
-          box-shadow:0 10px 24px rgba(239,68,68,.25);
+          box-shadow:0 10px 24px color-mix(in oklab, var(--sb-primary), transparent 70%);
         }
         .sx-brand-name{ font-weight:900; letter-spacing:.3px; font-size:1.15rem; }
         .sx-tag{ color:var(--sb-muted); font-weight:700; }
@@ -102,36 +122,24 @@ export default function GlobalFooter({
 
         /* Columns + newsletter grid */
         .sx-grid{
-          display:grid;
-          column-gap:24px;
-          row-gap:28px;
-          align-items:start;             /* keep tall items from stretching others */
+          display:grid; column-gap:24px; row-gap:28px; align-items:start;
         }
-
-        /* base: auto columns */
         @media (min-width:640px){  .sx-grid{ grid-template-columns: repeat(2, minmax(0,1fr)); } }
         @media (min-width:1024px){ .sx-grid{ grid-template-columns: repeat(3, minmax(0,1fr)); } }
         @media (min-width:1280px){ .sx-grid{ grid-template-columns: repeat(4, minmax(0,1fr)); } }
 
-        /* Explicit placement to avoid any crowding/overlap */
-        /* lg (≥1024 and <1280): 3 columns + newsletter full row */
+        /* Explicit placement */
         @media (min-width:1024px) and (max-width:1279.98px){
-          .sx-grid{
-            grid-template-areas:
-              "company support legal"
-              "news    news    news";
-          }
+          .sx-grid{ grid-template-areas:
+            "company support legal"
+            "news    news    news"; }
           .sx-col.company { grid-area: company; }
           .sx-col.support { grid-area: support; }
           .sx-col.legal   { grid-area: legal; }
           .sx-col.news    { grid-area: news; }
         }
-
-        /* xl (≥1280): 4 columns in one row, newsletter at far right */
         @media (min-width:1280px){
-          .sx-grid{
-            grid-template-areas: "company support legal news";
-          }
+          .sx-grid{ grid-template-areas: "company support legal news"; }
           .sx-col.company { grid-area: company; }
           .sx-col.support { grid-area: support; }
           .sx-col.legal   { grid-area: legal; padding-right: var(--sx-nudge); }
@@ -149,52 +157,37 @@ export default function GlobalFooter({
         }
         .sx-link::after{
           content:""; position:absolute; left:0; right:0; bottom:0; height:2px;
-          background:linear-gradient(90deg, var(--sb-primary), #fb923c);
+          background:linear-gradient(90deg, var(--sb-primary), var(--sb-primary-2));
           transform:scaleX(0); transform-origin:left; transition:transform .2s ease; opacity:.85; border-radius:999px;
         }
         .sx-link:hover::after{ transform:scaleX(1); }
 
         /* Newsletter */
         .sx-letter{
-          position:relative;              /* create local stacking context */
-          isolation:isolate;
+          position:relative; isolation:isolate;
           background:#fff; border:1px solid rgba(15,23,42,.08); border-radius:16px; padding:12px;
           display:grid; gap:10px; box-shadow:0 10px 24px rgba(15,23,42,.06); width:100%;
-          overflow:hidden;                /* prevents any bleed from siblings */
+          overflow:hidden;
         }
         .sx-letter p{ margin:0; color:var(--sb-muted); font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 
-        .sx-field{
-          display:grid; grid-template-columns: minmax(220px, 1fr) auto; gap:8px; align-items:center;
-        }
+        .sx-field{ display:grid; grid-template-columns: minmax(220px, 1fr) auto; gap:8px; align-items:center; }
         .sx-input{
           border:1px solid rgba(15,23,42,.12); border-radius:12px; padding:10px 12px;
           font:inherit; outline:none; background:#fff; min-width:0;
         }
         .sx-input:focus{ box-shadow:var(--sb-ring); border-color:var(--sb-primary); }
         .sx-cta{
-          border:none; background:linear-gradient(90deg, var(--sb-primary), #fb923c); color:#fff; font-weight:900;
-          border-radius:12px; padding:10px 14px; cursor:pointer; box-shadow:0 10px 24px rgba(251,146,60,.25);
+          border:none; background:linear-gradient(90deg, var(--sb-primary), var(--sb-primary-2)); color:#fff; font-weight:900;
+          border-radius:12px; padding:10px 14px; cursor:pointer; box-shadow:0 10px 24px color-mix(in oklab, var(--sb-primary), transparent 70%);
           min-width:132px; transition:transform .12s, box-shadow .12s;
         }
-        .sx-cta:hover{ transform:translateY(-1px); box-shadow:0 14px 28px rgba(251,146,60,.28); }
+        .sx-cta:hover{ transform:translateY(-1px); box-shadow:0 14px 28px color-mix(in oklab, var(--sb-primary), transparent 65%); }
 
-        /* xl cap on newsletter width */
-        @media (min-width:1280px){
-          .sx-col.news .sx-letter { max-width: var(--sx-news-max); }
-        }
+        @media (min-width:1280px){ .sx-col.news .sx-letter { max-width: var(--sx-news-max); } }
+        @media (max-width:520px){ .sx-field{ grid-template-columns:1fr; } .sx-cta{ width:100%; } }
 
-        /* Narrow screens: stack field */
-        @media (max-width:520px){
-          .sx-field{ grid-template-columns:1fr; }
-          .sx-cta{ width:100%; }
-        }
-
-        .sx-footer { 
-           margin-top: clamp(20px, 3vw, 40px);  /* space before the footer’s accent line */
-        }
-
-        /* Bottom row */
+        .sx-footer { margin-top: clamp(20px, 3vw, 40px); }
         .sx-bottom{
           border-top:1px solid rgba(15,23,42,.06);
           display:flex; flex-wrap:wrap; gap:10px; justify-content:space-between; align-items:center;
@@ -205,6 +198,7 @@ export default function GlobalFooter({
       `}</style>
 
       <footer
+        data-theme={theme}               // <— NEW: theme hook (e.g., "staff")
         className={[
           "sx-footer",
           position === "sticky" ? "is-sticky" : "",
@@ -238,10 +232,7 @@ export default function GlobalFooter({
             {columns.map((col) => {
               const key = areaKey(col.title);
               return (
-                <div
-                  key={col.title}
-                  className={`sx-col ${key || ""} ${/legal/i.test(col.title) ? "legal" : ""}`}
-                >
+                <div key={col.title} className={`sx-col ${key || ""} ${/legal/i.test(col.title) ? "legal" : ""}`}>
                   <h4>{col.title}</h4>
                   <ul className="sx-list">
                     {col.links?.map((l) => (
@@ -261,16 +252,8 @@ export default function GlobalFooter({
               <form className="sx-letter" onSubmit={submitNewsletter}>
                 <p>Get product updates and offers.</p>
                 <div className="sx-field">
-                  <input
-                    className="sx-input"
-                    type="email"
-                    name="email"
-                    placeholder={newsletter.placeholder || "Your email"}
-                    required
-                  />
-                  <button className="sx-cta" type="submit">
-                    {newsletter.cta || "Subscribe"}
-                  </button>
+                  <input className="sx-input" type="email" name="email" placeholder={newsletter.placeholder || "Your email"} required />
+                  <button className="sx-cta" type="submit">{newsletter.cta || "Subscribe"}</button>
                 </div>
               </form>
             </div>

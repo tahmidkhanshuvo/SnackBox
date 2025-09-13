@@ -20,17 +20,17 @@ export default function Layout({ children, user: userProp, onLogout }) {
   const roleThemeVars = useMemo(() => {
     switch (role) {
       case "admin":
-        return { ["--sb-topbar-border"]: "rgba(24,24,27,.45)" };
+        return { ["--sb-topbar-border"]: "rgba(79,70,229,.50)" };
       case "staff":
         return {
-          ["--sb-topbar-border"]: "rgba(22,163,74,.35)", // green tint under topbar
-          ["--sb-primary"]: "#22c55e",          // green-500
-          ["--sb-primary-700"]: "#15803d",      // green-700
-          ["--sb-accent"]: "#065f46",           // teal/green heading text
-          ["--sb-ring"]: "0 0 0 2px rgba(34,197,94,.30)", // hover/focus glow
+          ["--sb-topbar-border"]: "rgba(16,185,129,.45)", // green tint under topbar
+          ["--sb-primary"]: "#22c55e",          // emerald-500
+          ["--sb-primary-700"]: "#16a34a",      // emerald-600
+          ["--sb-accent"]: "#065f46",           // deep green headings
+          ["--sb-ring"]: "0 0 0 3px rgba(34,197,94,.25)",
         };
       case "customer":
-        return { ["--sb-topbar-border"]: "rgba(16,185,129,.55)" };
+        return { ["--sb-topbar-border"]: "rgba(16,185,129,.35)" };
       default:
         return {};
     }
@@ -53,7 +53,7 @@ export default function Layout({ children, user: userProp, onLogout }) {
           <svg viewBox="0 0 24 24" fill="currentColor"><path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5s-3 1.34-3 3 1.34 3 3 3zM8 11c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.67 0-8 1.34-8 4v2h10v-2c0-1.54.58-2.94 1.53-4.03C10.49 12.57 9.3 13 8 13zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.92 1.97 3.45V19h6v-2c0-2.66-5.33-4-8-4z"/></svg>
         </button>
         <button className="sb-iconbtn" onClick={() => go("/admin/settings")} aria-label="Settings" title="Settings">
-          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M19.14,12.94a7.14,7.14,0,0,0,.05-1l2.11-1.65a.5.5,0,0,0,.12-.64l-2-3.46a.5.5,0,0,0-.6-.22l-2.49,1a7,7,0,0,0-1.73-1l-.38-2.65A.5.5,0,0,0,13.75,3h-3.5a.5.5,0,0,0-.49.41L9.38,6.06a7,7,0,0,0-1.73,1l-2.49-1a.5.5,0,0,0-.6.22l-2,3.46a.5.5,0,0,0,.12.64L4.9,12a7.14,7.14,0,0,0,0,2l-2.17,1.7a.5.5,0,0,0-.12.64l2,3.46a.5.5,0,0,0,.6.22l2.49-1a7,7,0,0,0,1.73,1l.38,2.65a.5.5,0,0,0,.49.41h3.5a.5.5,0,0,0,.49-.41l.38-2.65a7,7,0,0,0,1.73-1l2.49,1a.5.5,0,0,0,.6-.22l2-3.46a.5.5,0,0,0-.12-.64ZM12,15.5A3.5,3.5,0,1,1,15.5,12,3.5,3.5,0,0,1,12,15.5Z"/></svg>
+          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M19.14,12.94a7.14,7.14,0,0,0,.05-1l2.11-1.65a.5.5,0,0,0,.12-.64l-2-3.46a.5.5,0,0,0-.6-.22l-2.49,1a7,7,0,0,0-1.73-1l-.38-2.65A.5.5,0,0,0,13.75,3h-3.5a.5.5,0,0,0-.49.41L9.38,6.06a7,7,0,0,0-1.73,1l-2.49-1a.5.5,0,0,0-.6.22l-2,3.46a.5.5,0,0,0,.12.64L4.9,12a7.14,7.14,0,0,0,0,2l-2.17,1.7a.5.5,0,0,0-.12.64l2,3.46a.5.5,0,0,0,.6.22l-2.49-1a7,7,0,0,0,1.73,1l.38,2.65a.5.5,0,0,0,.49.41h3.5a.5.5,0,0,0,.49-.41l.38-2.65a7,7,0,0,0,1.73-1l2.49,1a.5.5,0,0,0,.6-.22l2-3.46a.5.5,0,0,0,.12-.64ZM12,15.5A3.5,3.5,0,1,1,15.5,12,3.5,3.5,0,0,1,12,15.5Z"/></svg>
         </button>
         <button className="sb-iconbtn" onClick={onLogout} aria-label="Logout" title="Logout">
           <svg viewBox="0 0 24 24" fill="currentColor"><path d="M16 17l1.41-1.41L14.83 13H21v-2h-6.17l2.58-2.59L16 7l-5 5 5 5zM4 5h8V3H4c-1.1 0-2 .9-2 2v14a2 2 0 002 2h8v-2H4V5z"/></svg>
@@ -114,6 +114,8 @@ export default function Layout({ children, user: userProp, onLogout }) {
   const onBrandClick = () =>
     go(role === "staff" ? "/staff" : role === "admin" ? "/admin" : "/");
 
+  const themeName = role === "staff" ? "staff" : role === "admin" ? "admin" : "default";
+
   return (
     <div
       style={{
@@ -131,6 +133,7 @@ export default function Layout({ children, user: userProp, onLogout }) {
             onBrandClick={onBrandClick}
             showCartIcon={role === "customer"} // cart icon+count only for customers
             right={rightByRole[role]}
+            theme={themeName}                 // ★ pass theme to Topbar
           />
         </div>
       )}
@@ -140,7 +143,7 @@ export default function Layout({ children, user: userProp, onLogout }) {
       </main>
 
       <div style={{ marginTop: "clamp(20px, 3vw, 40px)" }}>
-        <GlobalFooter position="static" />
+        <GlobalFooter position="static" theme={themeName} />  {/* ★ themed footer */}
       </div>
     </div>
   );
