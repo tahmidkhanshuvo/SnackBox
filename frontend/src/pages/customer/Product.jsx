@@ -1,16 +1,16 @@
 // src/pages/customer/Product.jsx
 import React, { useEffect, useMemo, useState } from "react";
 import apiClient from "../../api/api";
-import { CustomerTheme, Topbar } from "../../components/UI";
+import { CustomerTheme } from "../../components/UI";
 
 /**
  * Product detail page
- * - No back/home buttons; brand in Topbar navigates home.
+ * - Topbar/Logout handled globally by Layout.jsx
  * - Options (single-choice) and Add-ons (multi-choice) with price deltas.
  * - Special instructions.
  * - Live total = (base + options + addons) * qty.
  */
-export default function Product({ productId, onLogout, goHome }) {
+export default function Product({ productId }) {
   const id = useMemo(() => String(productId || "").trim(), [productId]);
   const [loading, setLoading] = useState(true);
   const [item, setItem] = useState(null);
@@ -26,15 +26,17 @@ export default function Product({ productId, onLogout, goHome }) {
   useEffect(() => {
     let alive = true;
     const run = async () => {
-      setLoading(true); setError("");
+      setLoading(true);
+      setError("");
       try {
         const { data } = await apiClient.get(`/api/menu-items/${id}`);
         if (!alive) return;
         setItem(data);
       } catch (e) {
+        if (!alive) return;
         setError(e?.response?.data?.message || "Failed to load item.");
       } finally {
-        alive = false ? null : setLoading(false);
+        if (alive) setLoading(false); // ← fix: don't clobber `alive`
       }
     };
     if (id) run();
@@ -50,8 +52,7 @@ export default function Product({ productId, onLogout, goHome }) {
   const desc   = item?.description || "Freshly prepared with quality ingredients.";
 
   // Option groups (prefer any coming from API)
-  // expected shape:
-  //   { key, title, type: 'single'|'multi', required?, max?, choices:[{key,label,price}] }
+  // shape: { key, title, type: 'single'|'multi', required?, max?, choices:[{key,label,price}] }
   const optionGroups = useMemo(() => {
     if (Array.isArray(item?.options) && item.options.length) return item.options;
     return [
@@ -146,16 +147,13 @@ export default function Product({ productId, onLogout, goHome }) {
   const dec = () => setQty((q) => Math.max(1, q - 1));
 
   const addToCart = () => {
-    // TODO: integrate real cart state
     const payload = {
       id,
       name,
       qty,
       basePrice: base,
       selections: single,
-      addons: Object.fromEntries(
-        Object.entries(multi).map(([k, v]) => [k, Array.from(v || [])])
-      ),
+      addons: Object.fromEntries(Object.entries(multi).map(([k, v]) => [k, Array.from(v || [])])),
       notes,
       unitTotal,
       grandTotal,
@@ -167,8 +165,6 @@ export default function Product({ productId, onLogout, goHome }) {
   return (
     <div className="sb-page">
       <CustomerTheme />
-      <Topbar onLogout={onLogout} onBrandClick={goHome} onProfileClick={() => window.history.replaceState({}, '', '/profile')} />
-
 
       <main className="sb-shell">
         {loading ? (
@@ -289,12 +285,12 @@ export default function Product({ productId, onLogout, goHome }) {
                 </div>
               </div>
 
-              {/* Footer controls */}
+              {/* Footer controls (sticky within page content) */}
               <div className="sb-footer">
                 <div className="sb-qty">
-                  <button onClick={() => setQty((q) => Math.max(1, q - 1))} aria-label="Decrease">−</button>
+                  <button onClick={dec} aria-label="Decrease">−</button>
                   <div>{qty}</div>
-                  <button onClick={() => setQty((q) => Math.min(99, q + 1))} aria-label="Increase">＋</button>
+                  <button onClick={inc} aria-label="Increase">＋</button>
                 </div>
                 <button className="sb-add" onClick={addToCart}>
                   Add to cart • ৳ {grandTotal.toLocaleString()}

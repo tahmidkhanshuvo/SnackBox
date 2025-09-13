@@ -5,6 +5,7 @@ import LoginPage from './pages/Login';
 import Home from './pages/customer/Home';
 import Product from './pages/customer/Product';
 import Profile from './pages/customer/Profile';
+import Layout from './components/Layout.jsx';
 
 const DashboardStyles = () => (
   <style>{`
@@ -17,11 +18,13 @@ const DashboardStyles = () => (
     @keyframes fadeIn{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:translateY(0)}}
   `}</style>
 );
+
 const Toast = ({ message, onClose, duration = 3000 }) => {
   const t = useRef(null);
   useEffect(() => { t.current = setTimeout(onClose, duration); return () => clearTimeout(t.current); }, [onClose, duration]);
   return (<div className="toast-wrap" role="status" aria-live="polite"><div className="toast">{message}<button onClick={onClose}>×</button></div></div>);
 };
+
 const StaffDashboard = ({ user, onLogout }) => (
   <div className="dashboard-container">
     <h2>Staff Dashboard</h2>
@@ -40,7 +43,7 @@ export default function App() {
   const [route, setRoute] = useState(getPath());
   const [toastMsg, setToastMsg] = useState('');
 
-  const goto = (path) => { setRoute(path); navigate(path); };
+  const goto = (path) => { setRoute(path); navigate(path); window.dispatchEvent(new PopStateEvent('popstate')); };
 
   useEffect(() => {
     (async () => {
@@ -77,7 +80,10 @@ export default function App() {
     setToastMsg(`Welcome, ${u.name}!`);
   };
 
-  const handleLogout = async () => { try { await apiClient.post('/api/auth/logout'); } catch {} setUser(null); goto('/login'); setToastMsg('Signed out successfully.'); };
+  const handleLogout = async () => {
+    try { await apiClient.post('/api/auth/logout'); } catch {}
+    setUser(null); goto('/login'); setToastMsg('Signed out successfully.');
+  };
 
   if (booting) return <div className="page-container"><h2>Loading...</h2></div>;
 
@@ -89,28 +95,31 @@ export default function App() {
       <DashboardStyles />
       {toastMsg && <Toast message={toastMsg} onClose={() => setToastMsg('')} />}
 
-      {!user && route === '/login' && <LoginPage onLoginSuccess={handleLoginSuccess} />}
+      {/* Everything below inherits the fixed Topbar/Footer from Layout */}
+      <Layout user={user} onLogout={handleLogout}>
+        {!user && route === '/login' && <LoginPage onLoginSuccess={handleLoginSuccess} />}
 
-      {user && route === '/staff' && (
-        <div className="page-container"><StaffDashboard user={user} onLogout={handleLogout} /></div>
-      )}
+        {user && route === '/staff' && (
+          <div className="page-container"><StaffDashboard user={user} onLogout={handleLogout} /></div>
+        )}
 
-      {user && !user.staff && (
-        <>
-          {route === '/' && <Home onLogout={handleLogout} openProduct={openProduct} openProfile={openProfile} />}
-          {route.startsWith('/product/') && (
-            <Product onLogout={handleLogout} productId={route.split('/')[2]} goHome={() => goto('/')} />
-          )}
-          {route === '/profile' && (
-            <Profile
-              seedUser={user}
-              onLogout={handleLogout}
-              goHome={() => goto('/')}
-              onUserUpdated={(fresh) => setUser(fresh)}
-            />
-          )}
-        </>
-      )}
+        {user && !user.staff && (
+          <>
+            {route === '/' && <Home onLogout={handleLogout} openProduct={openProduct} openProfile={openProfile} />}
+            {route.startsWith('/product/') && (
+              <Product onLogout={handleLogout} productId={route.split('/')[2]} goHome={() => goto('/')} />
+            )}
+            {route === '/profile' && (
+              <Profile
+                seedUser={user}
+                onLogout={handleLogout}
+                goHome={() => goto('/')}
+                onUserUpdated={(fresh) => setUser(fresh)}
+              />
+            )}
+          </>
+        )}
+      </Layout>
     </>
   );
 }

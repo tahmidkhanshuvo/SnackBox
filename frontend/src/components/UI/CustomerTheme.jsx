@@ -50,12 +50,7 @@ export default function CustomerTheme() {
           var(--sb-bg);
       }
 
-      .sb-shell {
-        max-width: var(--sb-max);
-        margin: 0 auto;
-        padding: 0 var(--sb-pad);
-        width: 100%;
-      }
+      .sb-shell { max-width: 1200px; margin: 0 auto; padding-inline: var(--sb-pad); }
 
       /* shared pieces */
       .sb-btn { border: 1px solid rgba(0,0,0,0.08); border-radius: var(--sb-btn-radius); padding: 10px 12px; font-weight: 800; background: #fff; color: var(--sb-accent); cursor: pointer; }

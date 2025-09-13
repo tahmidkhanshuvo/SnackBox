@@ -2,7 +2,6 @@
 import React from "react";
 import {
   CustomerTheme,
-  Topbar,
   SearchBar,
   OfferSlider,
   CategoryStrip,
@@ -12,7 +11,7 @@ import {
 const slides = [
   { img: "https://images.unsplash.com/photo-1550547660-d9450f859349?q=80&w=2000", title: "Flat 40% OFF • Weekend Feast", sub: "Grab sizzling deals on your favorites. Limited time only.", cta: "Order now" },
   { img: "https://images.unsplash.com/photo-1540189549336-e6e99c3679fe?q=80&w=2000", title: "Fresh & Fit", sub: "Salads and bowls crafted for your goals.", cta: "Explore healthy" },
-  { img: "https://images.unsplash.com/photo-1526312426976-593c8372c1b1?q=80&w=2000", title: "Sweet Indulgence", sub: "Desserts that make your day.", cta: "Treat yourself" },
+  { img: "https://images.unsplash.com/photo-1595267836652-65c7a027f256?q=80&w=2000", title: "Sweet Indulgence", sub: "Desserts that make your day.", cta: "Treat yourself" },
 ];
 
 const categories = [
@@ -35,7 +34,7 @@ const mockMenu = [
   { id: 6, title: "Chocolate Lava Cake",  price: 260, rating: 4.8, time: "30–35 min", img: "https://images.unsplash.com/photo-1606313564200-e75d5e30476e?q=80&w=2000", badge: "Hot" },
 ];
 
-export default function Home({ onLogout, openProduct, openProfile }) {
+export default function Home({ openProduct, openProfile }) {
   const handleSearch = (q) => console.log("search:", q);
   const handlePick   = (key) => console.log("category:", key);
   const addToCart    = (item) => console.log("add:", item);
@@ -43,8 +42,8 @@ export default function Home({ onLogout, openProduct, openProfile }) {
 
   return (
     <div className="sb-page">
+      {/* Keep your theme here (or we can move it to Layout to make it global) */}
       <CustomerTheme />
-      <Topbar onLogout={onLogout} onProfileClick={openProfile} onBrandClick={() => window.history.replaceState({}, '', '/')} />
 
       <main className="sb-shell">
         <OfferSlider slides={slides} onCta={(s) => console.log("CTA:", s)} />

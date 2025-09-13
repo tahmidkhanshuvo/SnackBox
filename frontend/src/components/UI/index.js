@@ -5,3 +5,4 @@ export { default as SearchBar } from "./SearchBar";
 export { default as OfferSlider } from "./OfferSlider";
 export { default as CategoryStrip } from "./CategoryStrip";
 export { default as ProductCard } from "./ProductCard";
+

@@ -157,4 +157,29 @@ class AuthController extends Controller
         $request->user()->currentAccessToken()?->delete();
         return response()->noContent();
     }
+
+    public function updateMe(Request $request)
+    {
+    /** @var \App\Models\User $user */
+    $user = $request->user();
+
+    $data = $request->validate([
+        'name'      => ['sometimes','string','max:255'],
+        'email'     => ['sometimes','email','max:255', Rule::unique('users','email')->ignore($user->id)],
+        'contact_no'=> ['sometimes','nullable','string','max:50'],
+        'password'  => ['sometimes','nullable','confirmed', Password::min(8)],
+    ]);
+
+    if (isset($data['password']) && $data['password']) {
+        $data['password'] = Hash::make($data['password']);
+    } else {
+        unset($data['password']);
+    }
+
+    $user->fill($data)->save();
+    $user->load('staff');
+
+    return response()->json(['message' => 'Updated', 'user' => $user]);
+    }
+
 }
