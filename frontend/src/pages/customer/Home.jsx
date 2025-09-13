@@ -35,7 +35,7 @@ const mockMenu = [
   { id: 6, title: "Chocolate Lava Cake",  price: 260, rating: 4.8, time: "30–35 min", img: "https://images.unsplash.com/photo-1606313564200-e75d5e30476e?q=80&w=2000", badge: "Hot" },
 ];
 
-export default function Home({ onLogout, openProduct }) {
+export default function Home({ onLogout, openProduct, openProfile }) {
   const handleSearch = (q) => console.log("search:", q);
   const handlePick   = (key) => console.log("category:", key);
   const addToCart    = (item) => console.log("add:", item);
@@ -44,7 +44,7 @@ export default function Home({ onLogout, openProduct }) {
   return (
     <div className="sb-page">
       <CustomerTheme />
-      <Topbar onLogout={onLogout} />
+      <Topbar onLogout={onLogout} onProfileClick={openProfile} onBrandClick={() => window.history.replaceState({}, '', '/')} />
 
       <main className="sb-shell">
         <OfferSlider slides={slides} onCta={(s) => console.log("CTA:", s)} />

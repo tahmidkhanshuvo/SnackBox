@@ -167,7 +167,8 @@ export default function Product({ productId, onLogout, goHome }) {
   return (
     <div className="sb-page">
       <CustomerTheme />
-      <Topbar onLogout={onLogout} onBrandClick={goHome} />
+      <Topbar onLogout={onLogout} onBrandClick={goHome} onProfileClick={() => window.history.replaceState({}, '', '/profile')} />
+
 
       <main className="sb-shell">
         {loading ? (
