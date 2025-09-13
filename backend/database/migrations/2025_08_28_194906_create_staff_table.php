@@ -11,23 +11,27 @@ return new class extends Migration
         Schema::create('staff', function (Blueprint $table) {
             $table->id();
 
-            // Optional link to a login user (if a staff member also logs into the app)
             $table->foreignId('user_id')
                   ->nullable()
                   ->constrained('users')
                   ->nullOnDelete();
 
+            // NEW: link staff to an optional shift (ERD)
+            $table->foreignId('shift_id')
+                  ->nullable()
+                  ->constrained('shifts')
+                  ->nullOnDelete();
+
             $table->string('first_name')->nullable();
             $table->string('last_name')->nullable();
-            $table->string('email')->nullable()->index();   // keep nullable if you don't require email for staff
+            $table->string('email')->nullable()->index();
             $table->string('phone')->nullable()->index();
-            $table->string('position')->nullable();         // e.g., cashier, cook, manager
+            $table->string('position')->nullable();   // cashier, cook, manager, etc.
             $table->date('hired_at')->nullable();
             $table->boolean('is_active')->default(true);
 
             $table->timestamps();
 
-            // Helpful compound index for lookups
             $table->index(['is_active', 'position']);
         });
     }
