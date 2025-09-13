@@ -2,13 +2,15 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { CustomerTheme } from "../../components/UI";
 import { getMenuItem } from "../../api/api";
+import { useCart } from "../../context/CartContext.jsx";
 
 /**
  * Product detail page
- * - Fetches a single menu item via getMenuItem(id) (normalized shape).
+ * - Fetches a single menu item via getMenuItem(id).
  * - Options (single-choice) and Add-ons (multi-choice) with price deltas.
  * - Special instructions.
  * - Live total = (base + options + addons) * qty.
+ * - On "Add to cart" → useCart().addItem(...) then navigate to /cart.
  */
 export default function Product({ productId }) {
   // Allow prop, ?id= query, or last segment of path as fallback
@@ -23,6 +25,8 @@ export default function Product({ productId }) {
       return "";
     }
   }, [productId]);
+
+  const { addItem } = useCart();
 
   const [loading, setLoading] = useState(true);
   const [item, setItem] = useState(null);
@@ -42,7 +46,7 @@ export default function Product({ productId }) {
       setLoading(true);
       setError("");
       try {
-        const data = await getMenuItem(derivedId); // normalized: { id,title,price,img,rating,time,_raw }
+        const data = await getMenuItem(derivedId); // raw backend row or resource
         if (!alive) return;
         setItem(data);
       } catch (e) {
@@ -55,13 +59,16 @@ export default function Product({ productId }) {
     return () => { alive = false; };
   }, [derivedId]);
 
-  // Use normalized fields + sensible fallbacks
-  const name   = item?.title || "Menu item";
-  const img    = item?.img   || "https://images.unsplash.com/photo-1551782450-17144c3a8f53?q=80&w=2000";
+  // Robust field mapping (supports your Laravel model)
+  const name   = item?.title || item?.item_name || item?.name || "Menu item";
+  const img    = item?.img
+              || item?.image_url
+              || (item?.image_path ? `/storage/${item.image_path}` : null)
+              || "https://images.unsplash.com/photo-1551782450-17144c3a8f53?q=80&w=2000";
   const base   = Number(item?.price ?? 0);
   const rating = item?.rating ?? 4.6;
-  const time   = item?.time   ?? "20–30 min";
-  const desc   = item?._raw?.description || "Freshly prepared with quality ingredients.";
+  const time   = item?.time   ?? item?.preparation_time ?? "20–30 min";
+  const desc   = item?.description || item?._raw?.description || "Freshly prepared with quality ingredients.";
 
   // Option groups (prefer coming from API under _raw)
   // expected shape: { key, title, type: 'single'|'multi', required?, max?, choices:[{key,label,price}] }
@@ -151,29 +158,39 @@ export default function Product({ productId }) {
     setMulti((m) => {
       const set = new Set(m[groupKey] || []);
       if (set.has(choiceKey)) set.delete(choiceKey);
-      else {
-        if (!max || set.size < max) set.add(choiceKey);
-      }
+      else if (!max || set.size < max) set.add(choiceKey);
       return { ...m, [groupKey]: set };
     });
 
   const inc = () => setQty((q) => Math.min(99, q + 1));
   const dec = () => setQty((q) => Math.max(1, q - 1));
 
+  const goto = (path) => {
+    if (!path || window.location.pathname === path) return;
+    window.history.replaceState({}, "", path);
+    window.dispatchEvent(new PopStateEvent("popstate"));
+  };
+
   const addToCart = () => {
-    const payload = {
+    // normalize addons to arrays
+    const addons = Object.fromEntries(
+      Object.entries(multi).map(([k, v]) => [k, Array.from(v || [])])
+    );
+
+    addItem({
       id: item?.id ?? derivedId,
       name,
+      img,
       qty,
-      basePrice: base,
-      selections: single,
-      addons: Object.fromEntries(Object.entries(multi).map(([k, v]) => [k, Array.from(v || [])])),
+      price: base,               // base price
+      unitDelta: singleDelta + addonsDelta, // additions from options/addons
+      selections: { ...single },
+      addons,
       notes,
-      unitTotal,
-      grandTotal,
-    };
-    console.log("ADD_TO_CART", payload);
-    alert("Added to cart! (stub)");
+    });
+
+    // navigate to cart
+    goto("/cart");
   };
 
   return (
@@ -404,7 +421,7 @@ function Skeleton() {
       <style>{`
         .sb-skel { display: grid; grid-template-columns: 1.4fr 1fr; gap: 24px; }
         @media (max-width: 900px) { .sb-skel { grid-template-columns: 1fr; } }
-        .img, .box { background: linear-gradient(90deg,#f3f4f6, #e5e7eb, #f3f4f6); background-size: 200% 100%; animation: sh 1.2s linear infinite; border-radius: var(--sb-card-radius); height: clamp(260px, 40vw, 560px); }
+        .img, .box { background: linear-gradient(90deg,#f3f4f6,#e5e7eb,#f3f4f6); background-size: 200% 100%; animation: sh 1.2s linear infinite; border-radius: var(--sb-card-radius); height: clamp(260px, 40vw, 560px); }
         .box { height: 240px; }
         @keyframes sh { 0% {background-position: 200% 0;} 100% {background-position: -200% 0;} }
       `}</style>

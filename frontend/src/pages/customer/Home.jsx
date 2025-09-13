@@ -7,7 +7,7 @@ import {
   CategoryStrip,
   ProductCard,
 } from "../../components/UI";
-import { getMenuItems } from "../../api/api";
+import { listMenuItems } from "../../api/api"; // <-- uses our API helper
 
 // --- hero slides (unchanged) ---
 const slides = [
@@ -28,6 +28,17 @@ const categories = [
   { key: "wrap",   name: "Wraps",   icon: "🌯"  },
 ];
 
+// map API resource -> card shape expected by ProductCard
+const toCard = (x) => ({
+  id: x?.id,
+  title: x?.name || x?.item_name || "Menu item",
+  img: x?.image_url || x?.image || null,
+  price: typeof x?.price === "number" ? x.price : Number(x?.price ?? 0),
+  rating: typeof x?.rating === "number" ? x.rating : 4.6,
+  time: x?.preparation_time || x?.prep_time || "20–30 min",
+  badge: x?.availability === false ? "Unavailable" : undefined,
+});
+
 export default function Home({ openProduct, openProfile }) {
   // ------- filters & pagination -------
   const [page, setPage] = useState(1);
@@ -36,7 +47,7 @@ export default function Home({ openProduct, openProfile }) {
 
   // ------- data state -------
   const [items, setItems] = useState([]);
-  const [meta, setMeta] = useState({ current_page: 1, per_page: 0, total: 0 });
+  const [meta, setMeta] = useState(null); // Laravel paginator meta
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState("");
 
@@ -47,10 +58,17 @@ export default function Home({ openProduct, openProfile }) {
       try {
         setLoading(true);
         setErr("");
-        const { items, meta } = await getMenuItems({ page, q, category });
+        const { items, meta } = await listMenuItems({
+          page,
+          q,
+          category: category || undefined, // omit if blank
+          per_page: 12,
+          sortBy: 'item_name',
+          sortDir: 'asc',
+        });
         if (!alive) return;
-        setItems(items);
-        setMeta(meta);
+        setItems((items || []).map(toCard));
+        setMeta(meta || null);
       } catch (e) {
         if (!alive) return;
         setErr(e?.response?.data?.message || e?.message || "Failed to load menu.");
@@ -62,7 +80,7 @@ export default function Home({ openProduct, openProfile }) {
   }, [page, q, category]);
 
   // ------- callbacks -------
-  const handleSearch = (text) => { setPage(1); setQ(text); };
+  const handleSearch = (text) => { setPage(1); setQ(text.trim()); };
   const handlePick = (key) => { setPage(1); setCategory(key === category ? "" : key); };
   const addToCart = (item) => console.log("add:", item);
   const details = (item) => openProduct?.(item.id);
@@ -73,6 +91,9 @@ export default function Home({ openProduct, openProfile }) {
     if (category) return categories.find(c => c.key === category)?.name || "Popular near you";
     return "Popular near you";
   }, [q, category]);
+
+  const canPrev = (meta?.current_page ?? 1) > 1 && !loading;
+  const canNext = meta?.last_page ? (meta.current_page < meta.last_page && !loading) : !loading;
 
   // ------- UI -------
   return (
@@ -92,8 +113,8 @@ export default function Home({ openProduct, openProfile }) {
 
             {/* tiny pager */}
             <div style={{ display: "flex", gap: 8 }}>
-              <button className="sb-pill" disabled={page <= 1 || loading} onClick={() => setPage(p => Math.max(1, p - 1))}>Prev</button>
-              <button className="sb-pill" disabled={loading || (meta?.total && items.length < 1)} onClick={() => setPage(p => p + 1)}>Next</button>
+              <button className="sb-pill" disabled={!canPrev} onClick={() => setPage(p => Math.max(1, p - 1))}>Prev</button>
+              <button className="sb-pill" disabled={!canNext} onClick={() => setPage(p => (meta?.last_page ? Math.min(meta.last_page, p + 1) : p + 1))}>Next</button>
             </div>
           </div>
 

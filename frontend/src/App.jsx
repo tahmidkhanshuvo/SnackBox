@@ -1,11 +1,15 @@
 // frontend/src/App.jsx
-import React, { useEffect, useRef, useState } from 'react';
-import apiClient from './api/api';
+import React, { useEffect, useRef, useState, Suspense, lazy } from 'react';
+import apiClient, { getMe } from './api/api';
 import LoginPage from './pages/Login';
 import Home from './pages/customer/Home';
 import Product from './pages/customer/Product';
 import Profile from './pages/customer/Profile';
 import Layout from './components/Layout.jsx';
+import { CartProvider } from './context/CartContext.jsx'; // provider has no CSS side effects
+
+// Lazy-load Cart so its styles only mount on /cart
+const Cart = lazy(() => import('./pages/customer/Cart.jsx'));
 
 const DashboardStyles = () => (
   <style>{`
@@ -28,14 +32,16 @@ const Toast = ({ message, onClose, duration = 3000 }) => {
 const StaffDashboard = ({ user, onLogout }) => (
   <div className="dashboard-container">
     <h2>Staff Dashboard</h2>
-    <p>Welcome, <strong>{user.name}</strong>!</p>
+    <p>Welcome, <strong>{user?.name}</strong>!</p>
     <p>This is the staff management area.</p>
     <button className="button-submit" onClick={onLogout}>Logout</button>
   </div>
 );
 
+// Tiny router helpers (History API)
 const getPath = () => window.location.pathname || '/';
 const navigate = (path) => { if (getPath() !== path) window.history.replaceState({}, '', path); };
+const scrollTop = () => { try { window.scrollTo({ top: 0, behavior: 'instant' }); } catch { window.scrollTo(0,0); } };
 
 export default function App() {
   const [user, setUser] = useState(null);
@@ -43,46 +49,57 @@ export default function App() {
   const [route, setRoute] = useState(getPath());
   const [toastMsg, setToastMsg] = useState('');
 
-  const goto = (path) => { setRoute(path); navigate(path); window.dispatchEvent(new PopStateEvent('popstate')); };
+  const goto = (path) => {
+    navigate(path);
+    setRoute(path);
+    window.dispatchEvent(new PopStateEvent('popstate'));
+    scrollTop();
+  };
 
+  // Boot: whoami
   useEffect(() => {
     (async () => {
       try {
-        const { data } = await apiClient.get('/api/auth/me');
-        setUser(data);
+        const me = await getMe(); // returns plain user object
+        setUser(me);
         const p = getPath();
-        const okCustomerPath = p === '/' || p.startsWith('/product/') || p === '/profile';
-        if (data?.staff) goto('/staff');
-        else goto(okCustomerPath ? p : '/');
+        const okCustomerPath = p === '/' || p.startsWith('/product/') || p === '/profile' || p === '/cart';
+        if (me?.staff) goto('/staff'); else goto(okCustomerPath ? p : '/');
       } catch {
         goto('/login');
-      } finally { setBooting(false); }
+      } finally {
+        setBooting(false);
+      }
     })();
+
     const pop = () => setRoute(getPath());
     window.addEventListener('popstate', pop);
     return () => window.removeEventListener('popstate', pop);
   }, []);
 
+  // Guard routes when auth/user changes
   useEffect(() => {
     if (booting) return;
     if (!user) { if (route !== '/login') goto('/login'); return; }
     if (user?.staff) { if (route !== '/staff') goto('/staff'); return; }
-    if (route === '/' || route.startsWith('/product/') || route === '/profile') return;
+    if (route === '/' || route.startsWith('/product/') || route === '/profile' || route === '/cart') return;
     goto('/');
   }, [user, route, booting]);
 
   const handleLoginSuccess = (u) => {
     setUser(u);
     const p = getPath();
-    const okCustomerPath = p.startsWith('/product/') || p === '/profile';
+    const okCustomerPath = p.startsWith('/product/') || p === '/profile' || p === '/cart';
     const dest = u?.staff ? '/staff' : (okCustomerPath ? p : '/');
     goto(dest);
-    setToastMsg(`Welcome, ${u.name}!`);
+    setToastMsg(`Welcome, ${u?.name || 'User'}!`);
   };
 
   const handleLogout = async () => {
     try { await apiClient.post('/api/auth/logout'); } catch {}
-    setUser(null); goto('/login'); setToastMsg('Signed out successfully.');
+    setUser(null);
+    goto('/login');
+    setToastMsg('Signed out successfully.');
   };
 
   if (booting) return <div className="page-container"><h2>Loading...</h2></div>;
@@ -95,31 +112,46 @@ export default function App() {
       <DashboardStyles />
       {toastMsg && <Toast message={toastMsg} onClose={() => setToastMsg('')} />}
 
-      {/* Everything below inherits the fixed Topbar/Footer from Layout */}
-      <Layout user={user} onLogout={handleLogout}>
-        {!user && route === '/login' && <LoginPage onLoginSuccess={handleLoginSuccess} />}
+      {/* Provide cart state to the whole app (no CSS impact) */}
+      <CartProvider>
+        {/* Everything below inherits the Topbar/Footer from Layout */}
+        <Layout user={user} onLogout={handleLogout}>
+          {!user && route === '/login' && <LoginPage onLoginSuccess={handleLoginSuccess} />}
 
-        {user && route === '/staff' && (
-          <div className="page-container"><StaffDashboard user={user} onLogout={handleLogout} /></div>
-        )}
+          {user && route === '/staff' && (
+            <div className="page-container"><StaffDashboard user={user} onLogout={handleLogout} /></div>
+          )}
 
-        {user && !user.staff && (
-          <>
-            {route === '/' && <Home onLogout={handleLogout} openProduct={openProduct} openProfile={openProfile} />}
-            {route.startsWith('/product/') && (
-              <Product onLogout={handleLogout} productId={route.split('/')[2]} goHome={() => goto('/')} />
-            )}
-            {route === '/profile' && (
-              <Profile
-                seedUser={user}
-                onLogout={handleLogout}
-                goHome={() => goto('/')}
-                onUserUpdated={(fresh) => setUser(fresh)}
-              />
-            )}
-          </>
-        )}
-      </Layout>
+          {user && !user.staff && (
+            <>
+              {route === '/' && <Home onLogout={handleLogout} openProduct={openProduct} openProfile={openProfile} />}
+
+              {route.startsWith('/product/') && (
+                <Product onLogout={handleLogout} productId={route.split('/')[2]} goHome={() => goto('/')} />
+              )}
+
+              {route === '/profile' && (
+                <Profile
+                  seedUser={user}
+                  onLogout={handleLogout}
+                  goHome={() => goto('/')}
+                  onUserUpdated={(fresh) => setUser(fresh)}
+                />
+              )}
+
+              {route === '/cart' && (
+                <Suspense fallback={<div className="page-container"><h2>Loading cart…</h2></div>}>
+                  <Cart
+                    goHome={() => goto('/')}
+                    onContinueShopping={() => goto('/')}
+                    onProfile={() => goto('/profile')}
+                  />
+                </Suspense>
+              )}
+            </>
+          )}
+        </Layout>
+      </CartProvider>
     </>
   );
 }
