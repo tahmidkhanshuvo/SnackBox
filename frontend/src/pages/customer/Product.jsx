@@ -1,17 +1,29 @@
 // src/pages/customer/Product.jsx
 import React, { useEffect, useMemo, useState } from "react";
-import apiClient from "../../api/api";
 import { CustomerTheme } from "../../components/UI";
+import { getMenuItem } from "../../api/api";
 
 /**
  * Product detail page
- * - Topbar/Logout handled globally by Layout.jsx
+ * - Fetches a single menu item via getMenuItem(id) (normalized shape).
  * - Options (single-choice) and Add-ons (multi-choice) with price deltas.
  * - Special instructions.
  * - Live total = (base + options + addons) * qty.
  */
 export default function Product({ productId }) {
-  const id = useMemo(() => String(productId || "").trim(), [productId]);
+  // Allow prop, ?id= query, or last segment of path as fallback
+  const derivedId = useMemo(() => {
+    if (productId) return String(productId).trim();
+    try {
+      const qid = new URLSearchParams(window.location.search).get("id");
+      if (qid) return String(qid);
+      const segs = (window.location.pathname || "").split("/").filter(Boolean);
+      return segs[segs.length - 1] || "";
+    } catch {
+      return "";
+    }
+  }, [productId]);
+
   const [loading, setLoading] = useState(true);
   const [item, setItem] = useState(null);
   const [error, setError] = useState("");
@@ -25,36 +37,37 @@ export default function Product({ productId }) {
   // Fetch product
   useEffect(() => {
     let alive = true;
-    const run = async () => {
+    (async () => {
+      if (!derivedId) return;
       setLoading(true);
       setError("");
       try {
-        const { data } = await apiClient.get(`/api/menu-items/${id}`);
+        const data = await getMenuItem(derivedId); // normalized: { id,title,price,img,rating,time,_raw }
         if (!alive) return;
         setItem(data);
       } catch (e) {
         if (!alive) return;
-        setError(e?.response?.data?.message || "Failed to load item.");
+        setError(e?.response?.data?.message || e?.message || "Failed to load item.");
       } finally {
-        if (alive) setLoading(false); // ← fix: don't clobber `alive`
+        if (alive) setLoading(false);
       }
-    };
-    if (id) run();
+    })();
     return () => { alive = false; };
-  }, [id]);
+  }, [derivedId]);
 
-  // Normalize backend fields + sensible defaults
-  const name   = item?.name || item?.title || "Menu item";
-  const img    = item?.image_url || item?.image || item?.image_path || "https://images.unsplash.com/photo-1551782450-17144c3a8f53?q=80&w=2000";
+  // Use normalized fields + sensible fallbacks
+  const name   = item?.title || "Menu item";
+  const img    = item?.img   || "https://images.unsplash.com/photo-1551782450-17144c3a8f53?q=80&w=2000";
   const base   = Number(item?.price ?? 0);
   const rating = item?.rating ?? 4.6;
-  const time   = item?.preparation_time || "20–30 min";
-  const desc   = item?.description || "Freshly prepared with quality ingredients.";
+  const time   = item?.time   ?? "20–30 min";
+  const desc   = item?._raw?.description || "Freshly prepared with quality ingredients.";
 
-  // Option groups (prefer any coming from API)
-  // shape: { key, title, type: 'single'|'multi', required?, max?, choices:[{key,label,price}] }
+  // Option groups (prefer coming from API under _raw)
+  // expected shape: { key, title, type: 'single'|'multi', required?, max?, choices:[{key,label,price}] }
   const optionGroups = useMemo(() => {
-    if (Array.isArray(item?.options) && item.options.length) return item.options;
+    const apiOptions = item?._raw?.options;
+    if (Array.isArray(apiOptions) && apiOptions.length) return apiOptions;
     return [
       {
         key: "size", title: "Choose size", type: "single", required: true,
@@ -75,7 +88,8 @@ export default function Product({ productId }) {
   }, [item]);
 
   const addonGroups = useMemo(() => {
-    if (Array.isArray(item?.addons) && item.addons.length) return item.addons;
+    const apiAddons = item?._raw?.addons;
+    if (Array.isArray(apiAddons) && apiAddons.length) return apiAddons;
     return [
       {
         key: "extras", title: "Add extras", type: "multi", max: 3,
@@ -148,7 +162,7 @@ export default function Product({ productId }) {
 
   const addToCart = () => {
     const payload = {
-      id,
+      id: item?.id ?? derivedId,
       name,
       qty,
       basePrice: base,
@@ -264,21 +278,21 @@ export default function Product({ productId }) {
                 />
               </div>
 
-              {/* Nutrition / Allergens (lightweight placeholders) */}
+              {/* Nutrition / Allergens (placeholders) */}
               <div className="sb-meta-grid">
                 <div className="sb-card small">
                   <h4>Nutrition (per serving)</h4>
                   <ul className="sb-list">
-                    <li>Energy: {item?.calories ?? 540} kcal</li>
-                    <li>Protein: {item?.protein ?? 24} g</li>
-                    <li>Carbs: {item?.carbs ?? 56} g</li>
-                    <li>Fat: {item?.fat ?? 22} g</li>
+                    <li>Energy: {item?._raw?.calories ?? 540} kcal</li>
+                    <li>Protein: {item?._raw?.protein ?? 24} g</li>
+                    <li>Carbs: {item?._raw?.carbs ?? 56} g</li>
+                    <li>Fat: {item?._raw?.fat ?? 22} g</li>
                   </ul>
                 </div>
                 <div className="sb-card small">
                   <h4>Allergens</h4>
                   <div className="sb-tags">
-                    {(item?.allergens ?? ["gluten", "dairy"]).map((a) => (
+                    {(item?._raw?.allergens ?? ["gluten", "dairy"]).map((a) => (
                       <span key={a} className="sb-tag">{a}</span>
                     ))}
                   </div>

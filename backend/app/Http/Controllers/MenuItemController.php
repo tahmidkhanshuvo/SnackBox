@@ -6,6 +6,7 @@ use App\Models\MenuItem;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
+use App\Http\Resources\MenuItemResource;
 
 class MenuItemController extends Controller
 {
@@ -27,7 +28,7 @@ class MenuItemController extends Controller
         if ($q !== '') {
             $query->where(function ($w) use ($q) {
                 $w->where('item_name', 'like', "%{$q}%")
-                    ->orWhere('category', 'like', "%{$q}%");
+                  ->orWhere('category', 'like', "%{$q}%");
             });
         }
 
@@ -49,7 +50,8 @@ class MenuItemController extends Controller
 
         $items = $query->orderBy($sortBy, $sortDir)->paginate($perPage);
 
-        return response()->json($items);
+        // Resource collection keeps paginator meta/links automatically
+        return MenuItemResource::collection($items);
     }
 
     /**
@@ -57,16 +59,15 @@ class MenuItemController extends Controller
      */
     public function show(MenuItem $menuItem)
     {
-        return response()->json($menuItem);
+        return new MenuItemResource($menuItem);
     }
 
     /**
      * POST /api/menu-items
-     * Body: { item_name, price, category?, availability? }  (JSON)
+     * Body: { item_name, price, category?, availability? }  (JSON or multipart)
      */
     public function store(Request $request)
     {
-        // UPDATED: Added 'price' to validation rules
         $data = $request->validate([
             'item_name'    => ['required','string','max:255'],
             'price'        => ['required','numeric','min:0'],
@@ -76,7 +77,6 @@ class MenuItemController extends Controller
             'image_alt'    => ['nullable','string','max:255'],
         ]);
 
-        // UPDATED: Added 'price' to the create call
         $menuItem = MenuItem::create([
             'item_name'    => $data['item_name'],
             'price'        => $data['price'],
@@ -90,7 +90,7 @@ class MenuItemController extends Controller
             $this->storeImage($request, $menuItem);
         }
 
-        return response()->json($menuItem->fresh(), 21);
+        return response()->json(new MenuItemResource($menuItem->fresh()), 201);
     }
 
     /**
@@ -99,7 +99,6 @@ class MenuItemController extends Controller
      */
     public function update(Request $request, MenuItem $menuItem)
     {
-        // UPDATED: Added 'price' to validation rules
         $data = $request->validate([
             'item_name'    => ['sometimes','string','max:255'],
             'price'        => ['sometimes','numeric','min:0'],
@@ -119,7 +118,7 @@ class MenuItemController extends Controller
             $this->storeImage($request, $menuItem);
         }
 
-        return response()->json($menuItem->fresh());
+        return response()->json(new MenuItemResource($menuItem->fresh()));
     }
 
     /**
@@ -139,7 +138,7 @@ class MenuItemController extends Controller
             $menuItem->save();
         }
 
-        return response()->json($menuItem->fresh());
+        return response()->json(new MenuItemResource($menuItem->fresh()));
     }
 
     /**

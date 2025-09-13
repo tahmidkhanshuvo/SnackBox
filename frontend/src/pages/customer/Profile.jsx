@@ -1,6 +1,6 @@
 // src/pages/customer/Profile.jsx
 import React, { useEffect, useState } from "react";
-import apiClient from "../../api/api";
+import apiClient, { patch as apiPatch } from "../../api/api";
 import { CustomerTheme } from "../../components/UI";
 
 export default function Profile({ goHome, onUserUpdated, seedUser }) {
@@ -8,6 +8,9 @@ export default function Profile({ goHome, onUserUpdated, seedUser }) {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [ok, setOk] = useState("");
+
+  // which URL worked for /me (auth/me vs me)
+  const [profileUrl, setProfileUrl] = useState("/api/auth/me");
 
   const [form, setForm] = useState({
     name: "",
@@ -18,47 +21,63 @@ export default function Profile({ goHome, onUserUpdated, seedUser }) {
   });
 
   // avatar
-  const [avatarUrl, setAvatarUrl] = useState(""); // from backend
+  const [avatarUrl, setAvatarUrl] = useState("");     // from backend
   const [avatarPreview, setAvatarPreview] = useState(""); // local preview
-  const [avatarFile, setAvatarFile] = useState(null); // File
+  const [avatarFile, setAvatarFile] = useState(null);     // File
+
+  // helper to normalize user payloads
+  const pickUser = (data) => (data?.user ?? data?.data ?? data ?? {});
+  const fillFromUser = (u) => {
+    setForm((f) => ({
+      ...f,
+      name: u?.name ?? "",
+      email: u?.email ?? "",
+      contact_no: u?.contact_no ?? "",
+      password: "",
+      password_confirmation: "",
+    }));
+    setAvatarUrl(u?.avatar_url || u?.photo_url || "");
+  };
 
   // load current user (prefer fresh fetch; fallback to seedUser)
   useEffect(() => {
     let alive = true;
     (async () => {
+      setLoading(true);
+      setError("");
       try {
-        setLoading(true);
-        const { data } = await apiClient.get("/api/auth/me");
-        if (!alive) return;
-        setForm((f) => ({
-          ...f,
-          name: data?.name ?? "",
-          email: data?.email ?? "",
-          contact_no: data?.contact_no ?? "",
-          password: "",
-          password_confirmation: "",
-        }));
-        setAvatarUrl(data?.avatar_url || data?.photo_url || "");
+        // try /api/auth/me first, then /api/me
+        try {
+          const { data } = await apiClient.get("/api/auth/me");
+          if (!alive) return;
+          fillFromUser(pickUser(data));
+          setProfileUrl("/api/auth/me");
+        } catch {
+          const { data } = await apiClient.get("/api/me");
+          if (!alive) return;
+          fillFromUser(pickUser(data));
+          setProfileUrl("/api/me");
+        }
       } catch {
         if (seedUser) {
-          setForm((f) => ({
-            ...f,
-            name: seedUser.name ?? "",
-            email: seedUser.email ?? "",
-            contact_no: seedUser.contact_no ?? "",
-            password: "",
-            password_confirmation: "",
-          }));
-          setAvatarUrl(seedUser?.avatar_url || seedUser?.photo_url || "");
+          fillFromUser(seedUser);
         } else {
           setError("Unable to load your profile.");
         }
       } finally {
-        setLoading(false);
+        if (alive) setLoading(false);
       }
     })();
     return () => { alive = false; };
-  }, [seedUser]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [seedUser?.id]);
+
+  useEffect(() => {
+    // cleanup preview URL on unmount/change
+    return () => {
+      if (avatarPreview?.startsWith("blob:")) URL.revokeObjectURL(avatarPreview);
+    };
+  }, [avatarPreview]);
 
   const onChange = (e) => setForm({ ...form, [e.target.name]: e.target.value });
 
@@ -66,12 +85,10 @@ export default function Profile({ goHome, onUserUpdated, seedUser }) {
     const file = e.target.files?.[0];
     if (!file) return;
     if (!file.type.startsWith("image/")) {
-      setError("Please select an image file.");
-      return;
+      setError("Please select an image file."); return;
     }
     if (file.size > 2 * 1024 * 1024) { // 2MB
-      setError("Image is larger than 2MB.");
-      return;
+      setError("Image is larger than 2MB."); return;
     }
     setError("");
     setAvatarFile(file);
@@ -92,23 +109,19 @@ export default function Profile({ goHome, onUserUpdated, seedUser }) {
     e.preventDefault();
     setError(""); setOk(""); setSaving(true);
     try {
+      let resp;
       if (avatarFile) {
         // multipart when changing photo
         const fd = new FormData();
         fd.append("name", form.name);
         fd.append("email", form.email);
         fd.append("contact_no", form.contact_no);
-        fd.append("avatar", avatarFile); // backend: accept 'avatar' or adjust field name
+        fd.append("avatar", avatarFile); // backend should accept 'avatar'
         if (form.password) {
           fd.append("password", form.password);
           fd.append("password_confirmation", form.password_confirmation);
         }
-        const { data } = await apiClient.patch("/api/auth/me", fd);
-        setOk("Profile updated.");
-        setForm((f) => ({ ...f, password: "", password_confirmation: "" }));
-        setAvatarUrl(data?.user?.avatar_url || data?.avatar_url || avatarUrl);
-        onUserUpdated?.(data?.user ?? data);
-        clearImage();
+        resp = await apiPatch(profileUrl, fd, { headers: { "Content-Type": "multipart/form-data" } });
       } else {
         // JSON when no photo change
         const payload = {
@@ -120,11 +133,15 @@ export default function Profile({ goHome, onUserUpdated, seedUser }) {
           payload.password = form.password;
           payload.password_confirmation = form.password_confirmation;
         }
-        const { data } = await apiClient.patch("/api/auth/me", payload);
-        setOk("Profile updated.");
-        setForm((f) => ({ ...f, password: "", password_confirmation: "" }));
-        onUserUpdated?.(data?.user ?? data);
+        resp = await apiPatch(profileUrl, payload);
       }
+
+      const user = pickUser(resp?.data);
+      setOk("Profile updated.");
+      setForm((f) => ({ ...f, password: "", password_confirmation: "" }));
+      setAvatarUrl(user?.avatar_url || user?.photo_url || avatarUrl);
+      onUserUpdated?.(user);
+      clearImage();
     } catch (err) {
       const msg = err?.response?.data?.message || "Update failed.";
       const v   = err?.response?.data?.errors;
