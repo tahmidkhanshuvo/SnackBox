@@ -88,16 +88,17 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::patch ('/complaints/{complaint}/assign/{staff}', [ComplaintController::class, 'assign']);
     Route::patch ('/complaints/{complaint}/resolve',      [ComplaintController::class, 'resolve']);
 
-    // Orders
+    // Orders (constrain IDs to numbers to avoid /undefined)
     Route::get    ('/orders',                              [OrderController::class, 'index']);
     Route::post   ('/orders',                              [OrderController::class, 'store']);
-    Route::get    ('/orders/{order}',                      [OrderController::class, 'show']);
-    Route::post   ('/orders/{order}/items',                [OrderController::class, 'addItem']);
-    Route::delete ('/orders/{order}/items/{orderItem}',    [OrderController::class, 'removeItem']);
+    Route::get    ('/orders/{order}',                      [OrderController::class, 'show'])->whereNumber('order');
+    Route::post   ('/orders/{order}/items',                [OrderController::class, 'addItem'])->whereNumber('order');
+    Route::delete ('/orders/{order}/items/{orderItem}',    [OrderController::class, 'removeItem'])
+        ->whereNumber('order')->whereNumber('orderItem');
 
     // Main status endpoint
-    Route::patch  ('/orders/{order}/status',               [OrderController::class, 'updateStatus']);
+    Route::patch  ('/orders/{order}/status',               [OrderController::class, 'updateStatus'])->whereNumber('order');
 
     // ✅ Alias so clients that call PATCH /orders/{id} still work
-    Route::patch  ('/orders/{order}',                      [OrderController::class, 'updateStatus']);
+    Route::patch  ('/orders/{order}',                      [OrderController::class, 'updateStatus'])->whereNumber('order');
 });

@@ -16,12 +16,23 @@ export default function Layout({ children, user: userProp, onLogout }) {
     return String(r || "guest").toLowerCase();
   }, [user]);
 
+  // THEME: staff = green/white
   const roleThemeVars = useMemo(() => {
     switch (role) {
-      case "admin":    return { ["--sb-topbar-border"]: "rgba(24,24,27,.45)" };
-      case "staff":    return { ["--sb-topbar-border"]: "rgba(79,70,229,.50)" };
-      case "customer": return { ["--sb-topbar-border"]: "rgba(16,185,129,.55)" };
-      default:         return {};
+      case "admin":
+        return { ["--sb-topbar-border"]: "rgba(24,24,27,.45)" };
+      case "staff":
+        return {
+          ["--sb-topbar-border"]: "rgba(22,163,74,.35)", // green tint under topbar
+          ["--sb-primary"]: "#22c55e",          // green-500
+          ["--sb-primary-700"]: "#15803d",      // green-700
+          ["--sb-accent"]: "#065f46",           // teal/green heading text
+          ["--sb-ring"]: "0 0 0 2px rgba(34,197,94,.30)", // hover/focus glow
+        };
+      case "customer":
+        return { ["--sb-topbar-border"]: "rgba(16,185,129,.55)" };
+      default:
+        return {};
     }
   }, [role]);
 
@@ -31,7 +42,7 @@ export default function Layout({ children, user: userProp, onLogout }) {
     window.dispatchEvent(new PopStateEvent("popstate"));
   };
 
-  /* ===== icon-only right actions per role (no text labels) ===== */
+  /* ===== right-side icon actions per role ===== */
   const rightByRole = {
     admin: (
       <>
@@ -49,16 +60,17 @@ export default function Layout({ children, user: userProp, onLogout }) {
         </button>
       </>
     ),
+    // STAFF quick actions in Topbar: Shifts, Salaries, Profile, Logout
     staff: (
       <>
-        <button className="sb-iconbtn" onClick={() => go("/staff")} aria-label="Queue" title="Queue">
-          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M3 13h8V3H3v10zm0 8h8v-6H3v6zM13 21h8v-8h-8v8zM13 3v6h8V3h-8z"/></svg>
+        <button className="sb-iconbtn" onClick={() => go("/staff/shifts")} aria-label="My Shifts" title="My Shifts">
+          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M7 3v2M17 3v2M3 8h18M5 6h14a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2z"/></svg>
         </button>
-        <button className="sb-iconbtn" onClick={() => go("/staff/orders")} aria-label="Orders" title="Orders">
-          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M7 5h14v2H7zM7 9h14v2H7zM7 13h14v2H7zM7 17h14v2H7zM3 5h2v2H3zM3 9h2v2H3zM3 13h2v2H3zM3 17h2v2H3z"/></svg>
+        <button className="sb-iconbtn" onClick={() => go("/staff/salaries")} aria-label="My Salaries" title="My Salaries">
+          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M3 7h14a4 4 0 0 1 4 4v2a4 4 0 0 1-4 4H3V7zm14 5h3"/></svg>
         </button>
-        <button className="sb-iconbtn" onClick={() => go("/staff/inventory")} aria-label="Inventory" title="Inventory">
-          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M20 6h-3V4H7v2H4v14h16V6zM9 6h6v2H9V6zm9 12H6V8h12v10z"/></svg>
+        <button className="sb-iconbtn" onClick={() => go("/staff/profile")} aria-label="My Profile" title="My Profile">
+          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 12a5 5 0 1 0-5-5 5 5 0 0 0 5 5zm0 2c-5 0-9 3-9 6v1h18v-1c0-3-4-6-9-6z"/></svg>
         </button>
         <button className="sb-iconbtn" onClick={onLogout} aria-label="Logout" title="Logout">
           <svg viewBox="0 0 24 24" fill="currentColor"><path d="M16 17l1.41-1.41L14.83 13H21v-2h-6.17l2.58-2.59L16 7l-5 5 5 5zM4 5h8V3H4c-1.1 0-2 .9-2 2v14a2 2 0 002 2h8v-2H4V5z"/></svg>
@@ -67,7 +79,6 @@ export default function Layout({ children, user: userProp, onLogout }) {
     ),
     customer: (
       <>
-        {/* Cart icon is shown by Topbar itself (with count) */}
         <button className="sb-iconbtn" onClick={() => go("/orders")} aria-label="Orders" title="Orders">
           <svg viewBox="0 0 24 24" fill="currentColor"><path d="M7 5h14v2H7zM7 9h14v2H7zM7 13h14v2H7zM7 17h14v2H7zM3 5h2v2H3zM3 9h2v2H3zM3 13h2v2H3zM3 17h2v2H3z"/></svg>
         </button>

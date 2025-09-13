@@ -29,6 +29,11 @@ const Topbar = forwardRef(function Topbar(
         :root{
           --sb-topbar-y: 14px;
           --sb-topbar-badge: 34px;
+          --sb-pad: clamp(14px, 4vw, 28px);
+          --sb-primary: var(--sb-primary, #22c55e);
+          --sb-primary-700: var(--sb-primary-700, #15803d);
+          --sb-accent: var(--sb-accent, #065f46);
+          --sb-ring: var(--sb-ring, 0 0 0 2px rgba(34,197,94,.30));
         }
         .sb-topbar{
           position: fixed; top:0; left:0; right:0; z-index:50;
@@ -51,12 +56,11 @@ const Topbar = forwardRef(function Topbar(
           width: var(--sb-topbar-badge); height: var(--sb-topbar-badge);
           border-radius:10px; display:grid; place-items:center;
           background: linear-gradient(135deg, var(--sb-primary), var(--sb-primary-700));
-          color:#fff; box-shadow: var(--sb-shadow-md);
+          color:#fff; box-shadow: 0 6px 16px rgba(0,0,0,.12);
         }
 
         .sb-actions{ display:flex; align-items:center; gap:10px; }
 
-        /* Icon button + subtle hover animation */
         .sb-iconbtn{
           position:relative; width:40px; height:40px;
           display:grid; place-items:center;
@@ -74,18 +78,17 @@ const Topbar = forwardRef(function Topbar(
         .sb-iconbtn:active{ transform: translateY(0); }
         .sb-iconbtn svg{ width:20px; height:20px; display:inline-block; }
 
-        /* Cart badge */
         .sb-badge{
           position:absolute; top:-6px; right:-6px;
           min-width:18px; height:18px; padding:0 5px;
           background:var(--sb-primary); color:#fff; border-radius:999px;
           font-size:.72rem; font-weight:900; display:grid; place-items:center;
-          box-shadow: var(--sb-shadow-md); line-height:1;
+          box-shadow: 0 6px 16px rgba(0,0,0,.12); line-height:1;
         }
       `}</style>
 
       <header ref={ref} className="sb-topbar">
-        <div className="sb-topbar-inner sb-shell">
+        <div className="sb-topbar-inner">
           <button
             className={`sb-brand ${isClickable ? "is-clickable" : ""}`}
             onClick={isClickable ? onBrandClick : undefined}
@@ -98,7 +101,7 @@ const Topbar = forwardRef(function Topbar(
           </button>
 
           <div className="sb-actions">
-            {/* Cart icon with live count — only when enabled (customer) */}
+            {/* Cart icon with live count — customers only */}
             {showCartIcon && (
               <button
                 className="sb-iconbtn"
@@ -113,7 +116,7 @@ const Topbar = forwardRef(function Topbar(
               </button>
             )}
 
-            {/* Role-based actions passed from Layout (icon-only) */}
+            {/* Role-based actions from Layout */}
             {right ?? (
               <button className="sb-iconbtn" onClick={onLogout} aria-label="Logout" title="Logout">
                 <svg viewBox="0 0 24 24" fill="currentColor"><path d="M16 17l1.41-1.41L14.83 13H21v-2h-6.17l2.58-2.59L16 7l-5 5 5 5zM4 5h8V3H4c-1.1 0-2 .9-2 2v14a2 2 0 002 2h8v-2H4V5z"/></svg>
