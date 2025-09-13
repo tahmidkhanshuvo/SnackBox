@@ -1,26 +1,27 @@
+// src/context/CartContext.jsx
 import React, { createContext, useContext, useEffect, useMemo, useRef, useState } from "react";
 import apiClient, { ensureCsrf } from "../api/api";
 
 /**
- * Cart line shape (frontend):
+ * Cart line (frontend)
  * {
- *   id: string|number,          // menu item id
- *   name: string,
- *   img?: string|null,
- *   price: number,              // unit base price (without options/addons)
+ *   id: string|number, name: string, img?: string|null,
+ *   price: number,              // base price per unit (no options/addons)
  *   qty: number,
- *   selections?: object,        // { groupKey: choiceKey }  (single-choice options)
- *   addons?: object,            // { groupKey: [choiceKey, ...] }  (multi-choice)
+ *   selections?: object,        // { groupKey: choiceKey }  (single-choice)
+ *   addons?: object,            // { groupKey: [choiceKey] } (multi-choice)
  *   notes?: string,
- *   unitDelta?: number,         // optional: (options + addons) extra per unit (computed by Product)
+ *   unitDelta?: number,         // (options + addons) extra per unit
+ *   // NEW: priced breakdown for displaying amounts in the cart:
+ *   pricedSelections?: Array<{ groupKey: string, title?: string, choiceKey: string, label?: string, price?: number }>,
+ *   pricedAddons?: Array<{ groupKey: string, title?: string, choiceKey: string, label?: string, price?: number }>,
  * }
- *
- * We generate a stable lineId so the SAME config merges quantities.
  */
 
 const CartCtx = createContext(null);
 const STORAGE_KEY = "sb.cart.v1";
 
+/* ---------- utilities ---------- */
 function serializeConfig(line) {
   const selPairs = Object.entries(line?.selections || {}).sort(([a],[b]) => a.localeCompare(b));
   const addPairs = Object.entries(line?.addons || {})
@@ -28,27 +29,28 @@ function serializeConfig(line) {
     .sort(([a],[b]) => a.localeCompare(b));
   return JSON.stringify({ s: selPairs, a: addPairs });
 }
-
 function makeLineId(line) {
   return `${line.id}::${serializeConfig(line)}`;
 }
-
 function clampQty(n) {
   n = Number(n || 0);
   if (!Number.isFinite(n)) n = 1;
   return Math.max(1, Math.min(99, Math.round(n)));
 }
-
-function lineUnitTotal(line) {
-  const base = Number(line.price || 0);
-  const delta = Number(line.unitDelta || 0);
+function sumPriced(arr) {
+  return (arr || []).reduce((s, x) => s + Number(x?.price || 0), 0);
+}
+export function lineUnitTotal(line) {
+  const base = Number(line?.price || 0);
+  const delta = Number(line?.unitDelta || 0);
   return base + delta;
 }
-
+export function lineRowTotal(line) {
+  return lineUnitTotal(line) * clampQty(line?.qty);
+}
 function computeTotals(lines) {
   const items = lines || [];
-  const subtotal = items.reduce((s, l) => s + lineUnitTotal(l) * clampQty(l.qty), 0);
-  // keep taxes/fees optional for now
+  const subtotal = items.reduce((s, l) => s + lineRowTotal(l), 0);
   const taxes = 0;
   const fees = 0;
   const total = subtotal + taxes + fees;
@@ -56,6 +58,7 @@ function computeTotals(lines) {
   return { count, subtotal, taxes, fees, total };
 }
 
+/* ---------- provider ---------- */
 export function CartProvider({ children }) {
   const [lines, setLines] = useState([]);
   const firstLoad = useRef(true);
@@ -66,7 +69,12 @@ export function CartProvider({ children }) {
       const raw = localStorage.getItem(STORAGE_KEY);
       if (raw) {
         const parsed = JSON.parse(raw);
-        if (Array.isArray(parsed)) setLines(parsed.map((l) => ({ ...l, qty: clampQty(l.qty) })));
+        if (Array.isArray(parsed)) {
+          setLines(parsed.map((l) => ({
+            ...l,
+            qty: clampQty(l.qty),
+          })));
+        }
       }
     } catch {}
     firstLoad.current = false;
@@ -83,8 +91,22 @@ export function CartProvider({ children }) {
   // Derived totals
   const totals = useMemo(() => computeTotals(lines), [lines]);
 
-  // Actions
+  /* ---------- actions ---------- */
+
+  /**
+   * addItem(partial, { merge = true })
+   * Accepts optional priced breakdown arrays so the Cart page can show amounts.
+   */
   const addItem = (partial, { merge = true } = {}) => {
+    const pricedSelections = Array.isArray(partial.pricedSelections) ? partial.pricedSelections : [];
+    const pricedAddons = Array.isArray(partial.pricedAddons) ? partial.pricedAddons : [];
+
+    // derive delta if not explicitly supplied
+    const derivedDelta =
+      partial.unitDelta != null
+        ? Number(partial.unitDelta)
+        : (sumPriced(pricedSelections) + sumPriced(pricedAddons));
+
     const line = {
       id: partial.id,
       name: partial.name || "Item",
@@ -94,8 +116,11 @@ export function CartProvider({ children }) {
       selections: partial.selections || {},
       addons: partial.addons || {},
       notes: partial.notes || "",
-      unitDelta: Number(partial.unitDelta || partial.unitTotal ? Number(partial.unitTotal) - Number(partial.price || 0) : 0),
+      unitDelta: Number.isFinite(derivedDelta) ? derivedDelta : 0,
+      pricedSelections,
+      pricedAddons,
     };
+
     const lineId = makeLineId(line);
 
     setLines((prev) => {
@@ -120,27 +145,20 @@ export function CartProvider({ children }) {
 
   /**
    * Place order with backend.
-   * Backend routes available: POST /api/orders (then add items, etc.),
-   * but we’ll send everything in one go to /api/orders.
-   * If your OrderController needs a different shape, send it to me and I’ll adjust.
+   * If your controller expects a different payload, tell me and I’ll adjust.
    */
   const checkout = async ({ order_note = "" } = {}) => {
-    // Map cart lines -> backend expectations
     const items = lines.map((l) => ({
       menu_item_id: l.id,
       quantity: clampQty(l.qty),
-      unit_price: lineUnitTotal(l),          // base + options/addons
-      base_price: Number(l.price || 0),      // optional, useful server-side
-      selections: l.selections || {},        // keep full config
+      unit_price: lineUnitTotal(l),      // base + options/addons
+      base_price: Number(l.price || 0),  // optional for server
+      selections: l.selections || {},
       addons: l.addons || {},
       notes: l.notes || "",
     }));
 
-    const payload = {
-      items,
-      note: order_note,
-      // You can add: payment_method, address_id, etc. later
-    };
+    const payload = { items, note: order_note };
 
     await ensureCsrf();
     const { data } = await apiClient.post("/api/orders", payload);
@@ -155,6 +173,9 @@ export function CartProvider({ children }) {
     removeItem,
     clear,
     checkout,
+    // helpers (handy in Cart UI)
+    lineUnitTotal,
+    lineRowTotal,
   };
 
   return <CartCtx.Provider value={value}>{children}</CartCtx.Provider>;

@@ -8,6 +8,7 @@ import {
   ProductCard,
 } from "../../components/UI";
 import { listMenuItems } from "../../api/api"; // <-- uses our API helper
+import { useCart } from "../../context/CartContext.jsx";
 
 // --- hero slides (unchanged) ---
 const slides = [
@@ -40,6 +41,8 @@ const toCard = (x) => ({
 });
 
 export default function Home({ openProduct, openProfile }) {
+  const { addItem } = useCart(); // <-- NEW
+
   // ------- filters & pagination -------
   const [page, setPage] = useState(1);
   const [q, setQ] = useState("");
@@ -82,7 +85,23 @@ export default function Home({ openProduct, openProfile }) {
   // ------- callbacks -------
   const handleSearch = (text) => { setPage(1); setQ(text.trim()); };
   const handlePick = (key) => { setPage(1); setCategory(key === category ? "" : key); };
-  const addToCart = (item) => console.log("add:", item);
+
+  // Quick-add from card (1 qty, no options). If an item needs options, route to details instead from the card's "Details" button.
+  const addFromCard = (m) => {
+    const id    = m.id;
+    const name  = m.title || "Item";
+    const img   = m.img || null;
+    const price = Number(m.price || 0);
+
+    addItem({
+      id, name, img, qty: 1, price,
+      unitDelta: 0, unitTotal: price,
+      selections: {}, addons: {},
+      pricedSelections: [], pricedAddons: [],
+      notes: "",
+    });
+  };
+
   const details = (item) => openProduct?.(item.id);
 
   // simple derived label
@@ -142,7 +161,7 @@ export default function Home({ openProduct, openProfile }) {
           {/* product grid */}
           <div className="sb-grid">
             {items.map((m) => (
-              <ProductCard key={m.id} item={m} onAdd={addToCart} onDetails={details} />
+              <ProductCard key={m.id} item={m} onAdd={addFromCard} onDetails={details} />
             ))}
           </div>
 

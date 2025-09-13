@@ -13,7 +13,6 @@ import { useCart } from "../../context/CartContext.jsx";
  * - On "Add to cart" → useCart().addItem(...) then navigate to /cart.
  */
 export default function Product({ productId }) {
-  // Allow prop, ?id= query, or last segment of path as fallback
   const derivedId = useMemo(() => {
     if (productId) return String(productId).trim();
     try {
@@ -28,15 +27,15 @@ export default function Product({ productId }) {
 
   const { addItem } = useCart();
 
-  const [loading, setLoading] = useState(true);
-  const [item, setItem] = useState(null);
-  const [error, setError] = useState("");
+  const [loading, setLoading]   = useState(true);
+  const [item, setItem]         = useState(null);
+  const [error, setError]       = useState("");
 
   // UI state
-  const [qty, setQty] = useState(1);
-  const [single, setSingle] = useState({});   // { groupKey: choiceKey }
-  const [multi, setMulti] = useState({});     // { groupKey: Set(choiceKey) }
-  const [notes, setNotes] = useState("");
+  const [qty, setQty]           = useState(1);
+  const [single, setSingle]     = useState({});     // { groupKey: choiceKey }
+  const [multi, setMulti]       = useState({});     // { groupKey: Set(choiceKey) }
+  const [notes, setNotes]       = useState("");
 
   // Fetch product
   useEffect(() => {
@@ -46,7 +45,7 @@ export default function Product({ productId }) {
       setLoading(true);
       setError("");
       try {
-        const data = await getMenuItem(derivedId); // raw backend row or resource
+        const data = await getMenuItem(derivedId);
         if (!alive) return;
         setItem(data);
       } catch (e) {
@@ -59,7 +58,7 @@ export default function Product({ productId }) {
     return () => { alive = false; };
   }, [derivedId]);
 
-  // Robust field mapping (supports your Laravel model)
+  // Robust field mapping
   const name   = item?.title || item?.item_name || item?.name || "Menu item";
   const img    = item?.img
               || item?.image_url
@@ -67,11 +66,10 @@ export default function Product({ productId }) {
               || "https://images.unsplash.com/photo-1551782450-17144c3a8f53?q=80&w=2000";
   const base   = Number(item?.price ?? 0);
   const rating = item?.rating ?? 4.6;
-  const time   = item?.time   ?? item?.preparation_time ?? "20–30 min";
+  const time   = item?.time ?? item?.preparation_time ?? "20–30 min";
   const desc   = item?.description || item?._raw?.description || "Freshly prepared with quality ingredients.";
 
-  // Option groups (prefer coming from API under _raw)
-  // expected shape: { key, title, type: 'single'|'multi', required?, max?, choices:[{key,label,price}] }
+  // Option groups
   const optionGroups = useMemo(() => {
     const apiOptions = item?._raw?.options;
     if (Array.isArray(apiOptions) && apiOptions.length) return apiOptions;
@@ -79,16 +77,16 @@ export default function Product({ productId }) {
       {
         key: "size", title: "Choose size", type: "single", required: true,
         choices: [
-          { key: "regular", label: "Regular", price: 0 },
-          { key: "large",   label: "Large (+60)", price: 60 },
+          { key: "regular", label: "Regular",         price: 0  },
+          { key: "large",   label: "Large (+60)",     price: 60 },
         ],
       },
       {
         key: "spice", title: "Spice level", type: "single", required: false,
         choices: [
-          { key: "mild",   label: "Mild",   price: 0 },
-          { key: "medium", label: "Medium", price: 0 },
-          { key: "hot",    label: "Hot",    price: 0 },
+          { key: "mild",    label: "Mild",            price: 0 },
+          { key: "medium",  label: "Medium",          price: 0 },
+          { key: "hot",     label: "Hot",             price: 0 },
         ],
       },
     ];
@@ -101,17 +99,17 @@ export default function Product({ productId }) {
       {
         key: "extras", title: "Add extras", type: "multi", max: 3,
         choices: [
-          { key: "cheese",  label: "Cheese +40",  price: 40 },
-          { key: "bacon",   label: "Bacon +80",   price: 80 },
-          { key: "avocado", label: "Avocado +70", price: 70 },
+          { key: "cheese",  label: "Cheese +40",      price: 40 },
+          { key: "bacon",   label: "Bacon +80",       price: 80 },
+          { key: "avocado", label: "Avocado +70",     price: 70 },
         ],
       },
       {
         key: "sauces", title: "Sauces (max 2)", type: "multi", max: 2,
         choices: [
-          { key: "garlic",   label: "Garlic Mayo +20",  price: 20 },
-          { key: "chipotle", label: "Chipotle +25",     price: 25 },
-          { key: "bbq",      label: "BBQ +20",          price: 20 },
+          { key: "garlic",   label: "Garlic Mayo +20", price: 20 },
+          { key: "chipotle", label: "Chipotle +25",    price: 25 },
+          { key: "bbq",      label: "BBQ +20",         price: 20 },
         ],
       },
     ];
@@ -129,7 +127,7 @@ export default function Product({ productId }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [optionGroups.length]);
 
-  // Price math
+  // Price math (keep your existing totals)
   const singleDelta = optionGroups.reduce((sum, g) => {
     if (g.type !== "single") return sum;
     const sel = single[g.key];
@@ -147,7 +145,37 @@ export default function Product({ productId }) {
     return sum + groupTotal;
   }, 0);
 
-  const unitTotal = base + singleDelta + addonsDelta;
+  // Build *priced* breakdown arrays for the cart UI
+  const pricedSelections = useMemo(() => {
+    return optionGroups.flatMap((g) => {
+      if (g.type !== "single") return [];
+      const selKey = single[g.key];
+      const c = g.choices?.find((x) => x.key === selKey);
+      return c ? [{
+        groupKey: g.key, title: g.title,
+        choiceKey: c.key, label: c.label, price: Number(c.price || 0),
+      }] : [];
+    });
+  }, [optionGroups, single]);
+
+  const pricedAddons = useMemo(() => {
+    return addonGroups.flatMap((g) => {
+      if (g.type !== "multi") return [];
+      const picked = Array.from(multi[g.key] || []);
+      return picked.map((ck) => {
+        const c = g.choices?.find((x) => x.key === ck);
+        return c ? {
+          groupKey: g.key, title: g.title,
+          choiceKey: c.key, label: c.label, price: Number(c.price || 0),
+        } : null;
+      }).filter(Boolean);
+    });
+  }, [addonGroups, multi]);
+
+  const selDelta = pricedSelections.reduce((s, p) => s + p.price, 0);
+  const addDelta = pricedAddons.reduce((s, p) => s + p.price, 0);
+
+  const unitTotal = base + selDelta + addDelta;  // use priced arrays for exactness
   const grandTotal = unitTotal * qty;
 
   // Handlers
@@ -172,24 +200,26 @@ export default function Product({ productId }) {
   };
 
   const addToCart = () => {
-    // normalize addons to arrays
     const addons = Object.fromEntries(
       Object.entries(multi).map(([k, v]) => [k, Array.from(v || [])])
     );
 
+    // IMPORTANT: send both unitDelta *and* unitTotal to dodge the precedence bug in CartContext
     addItem({
       id: item?.id ?? derivedId,
       name,
       img,
       qty,
-      price: base,               // base price
-      unitDelta: singleDelta + addonsDelta, // additions from options/addons
+      price: base,
+      unitDelta: selDelta + addDelta,
+      unitTotal,                         // ensures correct delta if your context uses unitTotal - price
       selections: { ...single },
       addons,
+      pricedSelections,                  // <— used by Cart to show amounts
+      pricedAddons,                      // <— used by Cart to show amounts
       notes,
     });
 
-    // navigate to cart
     goto("/cart");
   };
 
@@ -316,7 +346,7 @@ export default function Product({ productId }) {
                 </div>
               </div>
 
-              {/* Footer controls (sticky within page content) */}
+              {/* Footer controls */}
               <div className="sb-footer">
                 <div className="sb-qty">
                   <button onClick={dec} aria-label="Decrease">−</button>

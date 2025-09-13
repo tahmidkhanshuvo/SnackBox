@@ -1,12 +1,13 @@
 // frontend/src/pages/customer/Cart.jsx
-import React, { useMemo, useState } from "react";
+import React, { useState } from "react";
 import { CustomerTheme } from "../../components/UI";
 import { useCart } from "../../context/CartContext.jsx";
 
-/** Helpers */
+/* ------- helpers ------- */
 const clamp = (n, min = 1, max = 99) => Math.max(min, Math.min(max, Math.round(Number(n || 0))));
 const bd = (n) => `৳ ${Number(n || 0).toLocaleString()}`;
 const unit = (l) => Number(l.price || 0) + Number(l.unitDelta || 0);
+const sumPriced = (arr = []) => arr.reduce((s, x) => s + Number(x?.price || 0), 0);
 
 function summarize(line) {
   const sels = Object.entries(line?.selections || {});
@@ -32,7 +33,6 @@ export default function Cart({ goHome, onContinueShopping, onProfile }) {
       const data = await checkout({ order_note: note });
       setOk("Order placed successfully!");
       clear();
-      // Navigate home after a brief visual confirmation
       setTimeout(() => { goHome?.(); }, 600);
     } catch (e) {
       const msg = e?.response?.data?.message || e?.message || "Failed to place order.";
@@ -74,15 +74,20 @@ export default function Cart({ goHome, onContinueShopping, onProfile }) {
               {lines.map((l) => {
                 const u = unit(l);
                 const lineTotal = u * clamp(l.qty);
+
+                const hasBreakdown =
+                  (l?.pricedSelections?.length || 0) > 0 ||
+                  (l?.pricedAddons?.length || 0) > 0;
+
+                const base = Number(l.price || 0);
+                const selTotal = sumPriced(l.pricedSelections);
+                const addTotal = sumPriced(l.pricedAddons);
+
                 return (
                   <article key={l.lineId} className="c-line">
                     <div className="media">
                       <div className="thumb">
-                        {l.img ? (
-                          <img src={l.img} alt={l.name} />
-                        ) : (
-                          <div className="ph">🍽</div>
-                        )}
+                        {l.img ? <img src={l.img} alt={l.name} /> : <div className="ph">🍽</div>}
                       </div>
 
                       <div className="body">
@@ -91,9 +96,68 @@ export default function Cart({ goHome, onContinueShopping, onProfile }) {
                           <div className="price">{bd(u)}</div>
                         </div>
 
+                        {/* summary row (fallback text if no priced breakdown yet) */}
                         <div className="meta" title={summarize(l)}>
-                          {summarize(l) || <span className="muted">No options</span>}
+                          {hasBreakdown ? (
+                            <>
+                              <span className="muted">Base:</span> {bd(base)}
+                              {selTotal ? <> • <span className="muted">Options:</span> {bd(selTotal)}</> : null}
+                              {addTotal ? <> • <span className="muted">Add-ons:</span> {bd(addTotal)}</> : null}
+                            </>
+                          ) : (
+                            summarize(l) || <span className="muted">No options</span>
+                          )}
                         </div>
+
+                        {/* detailed expandable breakdown */}
+                        {hasBreakdown && (
+                          <details className="bk">
+                            <summary>Details</summary>
+                            <div className="bk-grid">
+                              <div className="bk-row">
+                                <span className="muted">Base price</span>
+                                <b>{bd(base)}</b>
+                              </div>
+
+                              {l.pricedSelections?.length ? (
+                                <>
+                                  <div className="bk-section">Options</div>
+                                  {l.pricedSelections.map((p, i) => (
+                                    <div className="bk-row small" key={`sel-${l.lineId}-${i}`}>
+                                      <span>{p.title || p.groupKey}: {p.label || p.choiceKey}</span>
+                                      <b>{bd(p.price || 0)}</b>
+                                    </div>
+                                  ))}
+                                  <div className="bk-row">
+                                    <span className="muted">Options total</span>
+                                    <b>{bd(selTotal)}</b>
+                                  </div>
+                                </>
+                              ) : null}
+
+                              {l.pricedAddons?.length ? (
+                                <>
+                                  <div className="bk-section">Add-ons</div>
+                                  {l.pricedAddons.map((p, i) => (
+                                    <div className="bk-row small" key={`add-${l.lineId}-${i}`}>
+                                      <span>{p.title || p.groupKey}: {p.label || p.choiceKey}</span>
+                                      <b>{bd(p.price || 0)}</b>
+                                    </div>
+                                  ))}
+                                  <div className="bk-row">
+                                    <span className="muted">Add-ons total</span>
+                                    <b>{bd(addTotal)}</b>
+                                  </div>
+                                </>
+                              ) : null}
+
+                              <div className="bk-row total">
+                                <span>Unit total</span>
+                                <b>{bd(u)}</b>
+                              </div>
+                            </div>
+                          </details>
+                        )}
 
                         <div className="row foot">
                           <div className="qty">
@@ -182,6 +246,7 @@ export default function Cart({ goHome, onContinueShopping, onProfile }) {
 
         <style>{`
           .grad{background:linear-gradient(90deg,var(--sb-primary),#fb923c);-webkit-background-clip:text;background-clip:text;color:transparent}
+          .muted{color:var(--sb-muted);font-weight:700}
 
           .c-hero{display:grid;gap:10px;margin-bottom:16px}
           .c-badge{display:inline-flex;align-items:center;gap:8px;font-weight:800;font-size:.8rem;padding:6px 10px;border-radius:999px;background:var(--sb-primary-50);color:var(--sb-primary);width:max-content}
@@ -217,6 +282,15 @@ export default function Cart({ goHome, onContinueShopping, onProfile }) {
           .price{font-weight:900;color:var(--sb-accent)}
 
           .meta{color:var(--sb-muted);font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+          /* breakdown */
+          .bk{margin-top:4px}
+          .bk > summary { cursor: pointer; font-weight:800; color:var(--sb-accent); }
+          .bk-grid{display:grid;gap:6px;margin-top:8px}
+          .bk-section{margin-top:2px;font-weight:900;color:var(--sb-accent)}
+          .bk-row{display:flex;justify-content:space-between;align-items:center;border-bottom:1px dashed rgba(0,0,0,.06);padding:4px 0}
+          .bk-row.small span{font-weight:700;color:var(--sb-accent)}
+          .bk-row.total{padding-top:8px;border-bottom:none}
 
           .row.foot{display:flex;align-items:center;gap:10px;justify-content:space-between}
           .qty{display:inline-flex;align-items:center;gap:10px;border:1px solid rgba(0,0,0,.1);border-radius:999px;padding:6px;background:#fff}
