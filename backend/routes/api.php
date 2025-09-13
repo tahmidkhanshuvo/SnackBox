@@ -94,5 +94,10 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get    ('/orders/{order}',                      [OrderController::class, 'show']);
     Route::post   ('/orders/{order}/items',                [OrderController::class, 'addItem']);
     Route::delete ('/orders/{order}/items/{orderItem}',    [OrderController::class, 'removeItem']);
+
+    // Main status endpoint
     Route::patch  ('/orders/{order}/status',               [OrderController::class, 'updateStatus']);
+
+    // ✅ Alias so clients that call PATCH /orders/{id} still work
+    Route::patch  ('/orders/{order}',                      [OrderController::class, 'updateStatus']);
 });

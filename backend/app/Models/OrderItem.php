@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Casts\Attribute;
 
 class OrderItem extends Model
 {
@@ -15,51 +16,46 @@ class OrderItem extends Model
         'quantity',
         'unit_price',
         'line_total',
-        'note',
+        'note',        // user comment
+        'addons',      // JSON
+        'selections',  // JSON
     ];
 
     protected $casts = [
         'quantity'   => 'integer',
         'unit_price' => 'decimal:2',
         'line_total' => 'decimal:2',
+        'addons'     => 'array',
+        'selections' => 'array',
     ];
 
-    // Relationships
-    public function order()
+    // expose "comment" so frontend can read it uniformly
+    protected $appends = ['comment'];
+
+    public function getCommentAttribute(): ?string
     {
-        return $this->belongsTo(Order::class);
+        return $this->note;
     }
 
-    public function menuItem()
-    {
-        return $this->belongsTo(MenuItem::class, 'menu_item_id');
-    }
+    // Relationships
+    public function order()     { return $this->belongsTo(Order::class); }
+    public function menuItem()  { return $this->belongsTo(MenuItem::class, 'menu_item_id'); }
 
     // Auto-calc line_total and keep order totals correct
     protected static function booted(): void
     {
         static::saving(function (OrderItem $item) {
-            // Default unit_price from menu item if not provided
-            if (is_null($item->unit_price) && $item->relationLoaded('menuItem') && $item->menuItem) {
-                // If you later add a price on menu_items, you can pull it here.
-                // $item->unit_price = $item->menuItem->price;
-            }
-
-            $qty = (int) ($item->quantity ?? 0);
+            $qty   = (int) ($item->quantity ?? 0);
             $price = (float) ($item->unit_price ?? 0);
             $item->line_total = $qty * $price;
         });
 
-        // After save/delete, recalc parent order totals
         $recalc = function (OrderItem $item) {
             if ($item->order) {
                 $order = $item->order->fresh(['items']);
                 $subtotal = $order->items->sum('line_total');
-                // Leave tax/discount as-is; just recompute subtotal & total
                 $order->subtotal = $subtotal;
-                $order->total    = ($order->subtotal ?? 0)
-                                 + ($order->tax ?? 0)
-                                 - ($order->discount ?? 0);
+                $order->total    = ($order->subtotal ?? 0) + ($order->tax ?? 0) - ($order->discount ?? 0);
                 $order->saveQuietly();
             }
         };

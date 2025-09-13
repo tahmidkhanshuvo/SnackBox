@@ -9,14 +9,13 @@ class Order extends Model
 {
     use HasFactory;
 
-    // Allowed statuses (keep in sync with the migration enum)
-    public const STATUS_PENDING    = 'pending';
-    public const STATUS_CONFIRMED  = 'confirmed';
-    public const STATUS_PREPARING  = 'preparing';
-    public const STATUS_READY      = 'ready';
-    public const STATUS_PICKED_UP  = 'picked_up';
-    public const STATUS_COMPLETED  = 'completed';
-    public const STATUS_CANCELLED  = 'cancelled';
+    public const STATUS_PENDING   = 'pending';
+    public const STATUS_CONFIRMED = 'confirmed';
+    public const STATUS_PREPARING = 'preparing';
+    public const STATUS_READY     = 'ready';
+    public const STATUS_PICKED_UP = 'picked_up';
+    public const STATUS_COMPLETED = 'completed';
+    public const STATUS_CANCELLED = 'cancelled';
 
     protected $fillable = [
         'user_id',
@@ -27,30 +26,27 @@ class Order extends Model
         'status',
         'payment_method',
         'reference',
+        // NEW:
+        'accepted_by',
+        'accepted_at',
+        'cancel_reason',
     ];
 
     protected $casts = [
-        'subtotal' => 'decimal:2',
-        'tax'      => 'decimal:2',
-        'discount' => 'decimal:2',
-        'total'    => 'decimal:2',
+        'subtotal'     => 'decimal:2',
+        'tax'          => 'decimal:2',
+        'discount'     => 'decimal:2',
+        'total'        => 'decimal:2',
+        // NEW:
+        'accepted_at'  => 'datetime',
     ];
 
     /* -------------------- Relationships -------------------- */
-
-    public function user()
-    {
-        return $this->belongsTo(User::class);
-    }
-
-    public function items()
-    {
-        return $this->hasMany(OrderItem::class);
-    }
+    public function user()       { return $this->belongsTo(User::class); }
+    public function items()      { return $this->hasMany(OrderItem::class); }
+    public function acceptedBy() { return $this->belongsTo(User::class, 'accepted_by'); }
 
     /* -------------------- Helpers -------------------- */
-
-    /** Recalculate subtotal & total from line items (tax/discount left as-is). */
     public function recalcTotals(): void
     {
         $subtotal = (float) $this->items()->sum('line_total');
@@ -59,13 +55,11 @@ class Order extends Model
         $this->saveQuietly();
     }
 
-    /** Quick scope: Order::status('pending')->get() */
     public function scopeStatus($query, string $status)
     {
         return $query->where('status', $status);
     }
 
-    /** Ensure numeric defaults (helps when creating empty orders). */
     protected static function booted(): void
     {
         static::creating(function (Order $order) {

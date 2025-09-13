@@ -1,15 +1,13 @@
-// frontend/src/App.jsx
-import React, { useEffect, useRef, useState, Suspense, lazy } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import apiClient, { getMe } from './api/api';
 import LoginPage from './pages/Login';
 import Home from './pages/customer/Home';
 import Product from './pages/customer/Product';
 import Profile from './pages/customer/Profile';
 import Layout from './components/Layout.jsx';
-import { CartProvider } from './context/CartContext.jsx'; // provider has no CSS side effects
-
-// Lazy-load Cart so its styles only mount on /cart
-const Cart = lazy(() => import('./pages/customer/Cart.jsx'));
+import { CartProvider } from './context/CartContext.jsx';
+import Cart from './pages/customer/Cart.jsx';
+import Orders from './pages/customer/Orders.jsx';
 
 const DashboardStyles = () => (
   <style>{`
@@ -63,8 +61,14 @@ export default function App() {
         const me = await getMe(); // returns plain user object
         setUser(me);
         const p = getPath();
-        const okCustomerPath = p === '/' || p.startsWith('/product/') || p === '/profile' || p === '/cart';
-        if (me?.staff) goto('/staff'); else goto(okCustomerPath ? p : '/');
+        const okCustomerPath =
+          p === '/' ||
+          p.startsWith('/product/') ||
+          p === '/profile' ||
+          p === '/cart' ||
+          p === '/orders';
+        if (me?.staff) goto('/staff');
+        else goto(okCustomerPath ? p : '/');
       } catch {
         goto('/login');
       } finally {
@@ -82,14 +86,14 @@ export default function App() {
     if (booting) return;
     if (!user) { if (route !== '/login') goto('/login'); return; }
     if (user?.staff) { if (route !== '/staff') goto('/staff'); return; }
-    if (route === '/' || route.startsWith('/product/') || route === '/profile' || route === '/cart') return;
+    if (route === '/' || route.startsWith('/product/') || route === '/profile' || route === '/cart' || route === '/orders') return;
     goto('/');
   }, [user, route, booting]);
 
   const handleLoginSuccess = (u) => {
     setUser(u);
     const p = getPath();
-    const okCustomerPath = p.startsWith('/product/') || p === '/profile' || p === '/cart';
+    const okCustomerPath = p.startsWith('/product/') || p === '/profile' || p === '/cart' || p === '/orders';
     const dest = u?.staff ? '/staff' : (okCustomerPath ? p : '/');
     goto(dest);
     setToastMsg(`Welcome, ${u?.name || 'User'}!`);
@@ -112,9 +116,9 @@ export default function App() {
       <DashboardStyles />
       {toastMsg && <Toast message={toastMsg} onClose={() => setToastMsg('')} />}
 
-      {/* Provide cart state to the whole app (no CSS impact) */}
+      {/* Provide cart state to the whole app */}
       <CartProvider>
-        {/* Everything below inherits the Topbar/Footer from Layout */}
+        {/* Everything below inherits the fixed Topbar/Footer from Layout */}
         <Layout user={user} onLogout={handleLogout}>
           {!user && route === '/login' && <LoginPage onLoginSuccess={handleLoginSuccess} />}
 
@@ -140,13 +144,15 @@ export default function App() {
               )}
 
               {route === '/cart' && (
-                <Suspense fallback={<div className="page-container"><h2>Loading cart…</h2></div>}>
-                  <Cart
-                    goHome={() => goto('/')}
-                    onContinueShopping={() => goto('/')}
-                    onProfile={() => goto('/profile')}
-                  />
-                </Suspense>
+                <Cart
+                  goHome={() => goto('/')}
+                  onContinueShopping={() => goto('/')}
+                  onProfile={() => goto('/profile')}
+                />
+              )}
+
+              {route === '/orders' && (
+                <Orders goHome={() => goto('/')} />
               )}
             </>
           )}
