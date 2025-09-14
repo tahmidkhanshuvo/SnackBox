@@ -188,10 +188,12 @@ Please follow existing conventions and include tests where appropriate.
 
 | Member | Roll No. | WakaTime |
 |--------|----------|----------|
+
 | **Tahmid Khan** | 20220204086 | [![wakatime](https://wakatime.com/badge/user/894dfb31-0f9f-49e6-8d27-968cdd668e2d/project/3ea3fcd1-eacd-40ab-b7f7-2f7f2bb7ce55.svg?style=for-the-badge&color=4CAF50&labelColor=222222&label=Coding%20Time)](https://wakatime.com/badge/user/894dfb31-0f9f-49e6-8d27-968cdd668e2d/project/3ea3fcd1-eacd-40ab-b7f7-2f7f2bb7ce55) |
 | **Tahmid Amir** | 20220204082 | [![wakatime](https://wakatime.com/badge/user/b6123c3e-1dbd-428c-bcdf-e609d68d7c89/project/a24ecc71-acbf-4bb4-a63e-f9650f049fa4.svg?style=for-the-badge&color=FF9800&labelColor=222222&label=Coding%20Time)](https://wakatime.com/badge/user/b6123c3e-1dbd-428c-bcdf-e609d68d7c89/project/a24ecc71-acbf-4bb4-a63e-f9650f049fa4) |
 | **Saobia Islam Tinni** | 20220204088 | [![wakatime](https://wakatime.com/badge/user/7f0860ba-774e-43d9-8390-34249079bba4/project/b0e6b1b7-ce1d-407c-8cd9-4264edccfc26.svg?style=for-the-badge&color=2196F3&labelColor=222222&label=Coding%20Time)](https://wakatime.com/badge/user/7f0860ba-774e-43d9-8390-34249079bba4/project/b0e6b1b7-ce1d-407c-8cd9-4264edccfc26) |
 | **Nusrat Jahan Mim** | 20220204092 | [![wakatime](https://wakatime.com/badge/user/94999694-7615-4f22-a018-4b2227b695e8/project/a5d471c8-de4d-4fb2-a7de-f52a932f71ee.svg?style=for-the-badge&color=E91E63&labelColor=222222&label=Coding%20Time)](https://wakatime.com/badge/user/94999694-7615-4f22-a018-4b2227b695e8/project/a5d471c8-de4d-4fb2-a7de-f52a932f71ee) |
+
 
 ---
 
