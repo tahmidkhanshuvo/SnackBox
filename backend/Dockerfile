@@ -13,25 +13,26 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # Install Composer
 COPY --from=composer:2.7 /usr/bin/composer /usr/bin/composer
 
-# Workdir
+# Set working dir
 WORKDIR /var/www/html
 
-# Copy app
-COPY . .
-
-# Install PHP deps (no dev), optimize autoloader
+# Copy composer files and install dependencies
+COPY composer.json composer.lock ./
 RUN composer install --no-dev --prefer-dist --optimize-autoloader --no-interaction
+
+# Copy application code
+COPY . .
 
 # Ensure writable dirs
 RUN mkdir -p storage bootstrap/cache \
  && chown -R www-data:www-data storage bootstrap/cache \
  && chmod -R 775 storage bootstrap/cache
 
-# Add an entrypoint to do runtime tasks (optimize, storage:link, migrate) using runtime ENV
+# Add entrypoint
 COPY docker/entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
 
-# (Optional) OPcache production settings
+# OPcache production settings
 RUN echo 'opcache.enable=1'                 >  /usr/local/etc/php/conf.d/opcache.ini \
  && echo 'opcache.enable_cli=1'             >> /usr/local/etc/php/conf.d/opcache.ini \
  && echo 'opcache.validate_timestamps=0'    >> /usr/local/etc/php/conf.d/opcache.ini \
@@ -41,6 +42,6 @@ RUN echo 'opcache.enable=1'                 >  /usr/local/etc/php/conf.d/opcache
 # Expose (Render ignores EXPOSE but it's fine)
 EXPOSE 8080
 
-# Use entrypoint; bind to $PORT assigned by Render
+# Use entrypoint; bind to $PORT from Render
 ENTRYPOINT ["/entrypoint.sh"]
-CMD ["php", "artisan", "serve", "--host=0.0.0.0", "--port=${PORT}"]
+CMD ["sh","-lc","php artisan serve --host=0.0.0.0 --port=${PORT:-8080}"]

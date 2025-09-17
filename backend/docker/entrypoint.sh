@@ -1,22 +1,25 @@
 #!/usr/bin/env bash
 set -e
 
-# Helpful log
 echo "[entrypoint] starting with APP_ENV=${APP_ENV:-production}, APP_URL=${APP_URL}"
 
-# Storage symlink (idempotent)
+# Ensure view directory exists (avoid 'View path not found')
+mkdir -p resources/views
+
+# Create storage symlink (idempotent)
 php artisan storage:link || true
 
-# Clear stale caches from image builds (if any)
+# Clear any stale caches
 php artisan config:clear || true
 php artisan route:clear  || true
 php artisan view:clear   || true
 
-# Optimize with *runtime* environment
-php artisan optimize || true
+# Cache only config & routes (skip view:cache to avoid missing dir errors)
+php artisan config:cache || true
+php artisan route:cache  || true
 
-# Run pending migrations (won't fail container if DB isn’t ready yet)
+# Run migrations (non-fatal if DB isn’t ready yet)
 php artisan migrate --force || echo "[entrypoint] migrate skipped/failed (DB not ready?)"
 
-# Finally, exec the CMD
+# Finally run container CMD
 exec "$@"

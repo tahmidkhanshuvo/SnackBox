@@ -1,22 +1,31 @@
 <?php
 
+// Build origins list safely from CSV env; ignore null/empties/extra spaces.
+$origins = array_values(array_filter(array_map(
+    'trim',
+    explode(',', env('CORS_ALLOWED_ORIGINS', ''))
+)));
+
+// Fallback for production if no env is provided
+if (empty($origins) && env('APP_ENV') === 'production') {
+    $origins = ['https://snackbox-frontend.onrender.com'];
+}
+
 return [
 
-    // Allow API routes + Sanctum's CSRF endpoint
-    'paths' => ['api/*', 'sanctum/csrf-cookie'],
+    // Allow API routes + Sanctum endpoints used by SPA auth
+    'paths' => ['api/*', 'sanctum/csrf-cookie', 'login', 'logout'],
 
     'allowed_methods' => ['*'],
 
-    // Accept multiple origins from a CSV env var
-    'allowed_origins' => explode(',', env('CORS_ALLOWED_ORIGINS')),
+    // Use our computed list (env or fallback)
+    'allowed_origins' => $origins,
 
-    // Keep patterns empty unless you need wildcards
+    // Leave patterns empty unless you truly need wildcards/regex
     'allowed_origins_patterns' => [],
 
     'allowed_headers' => ['*'],
-
     'exposed_headers' => [],
-
     'max_age' => 0,
 
     // Required for cookie-based auth (Sanctum SPA)
