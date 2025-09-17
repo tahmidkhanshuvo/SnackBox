@@ -16,6 +16,19 @@ backend/.env
 backend/.env.backup
 backend/.env.production
 
+# Ignore Laravel storage contents but keep .gitkeep placeholders
+backend/storage/app/*
+backend/storage/framework/*
+backend/storage/logs/*
+backend/storage/app/.gitkeep
+backend/storage/app/public/.gitkeep
+backend/storage/framework/.gitkeep
+backend/storage/framework/cache/.gitkeep
+backend/storage/framework/sessions/.gitkeep
+backend/storage/framework/views/.gitkeep
+backend/storage/logs/.gitkeep
+backend/resources/views/.gitkeep
+
 # Logs & misc
 *.log
 .DS_Store

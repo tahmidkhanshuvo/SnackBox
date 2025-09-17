@@ -3,7 +3,7 @@
 // Build origins list safely from CSV env; ignore null/empties/extra spaces.
 $origins = array_values(array_filter(array_map(
     'trim',
-    explode(',', env('CORS_ALLOWED_ORIGINS', ''))
+    explode(',', (string) env('CORS_ALLOWED_ORIGINS', ''))
 )));
 
 // Fallback for production if no env is provided

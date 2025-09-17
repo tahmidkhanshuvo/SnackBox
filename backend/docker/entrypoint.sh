@@ -3,7 +3,7 @@ set -euo pipefail
 
 echo ">> Booting SnackBox (Laravel) ..."
 
-# 0) Composer in container runs as root without nags
+# Composer in container runs as root without nags
 export COMPOSER_ALLOW_SUPERUSER=1
 
 # 1) Ensure vendor exists (useful for local 'docker run' scenarios)
@@ -19,21 +19,29 @@ if [ ! -f ".env" ]; then
 fi
 
 # 3) Ensure APP_KEY exists (either from env or by generating)
-APP_KEY_IN_DOTENV="$(grep -E '^APP_KEY=' .env || true)"
-if [ -z "${APP_KEY_IN_DOTENV}" ] && [ -z "${APP_KEY:-}" ]; then
-  echo ">> No APP_KEY found. Generating ..."
+APP_KEY_LINE="$(grep -E '^APP_KEY=.*' .env || true)"
+APP_KEY_VALUE="${APP_KEY_LINE#APP_KEY=}"
+if [ -z "${APP_KEY_VALUE}" ] && [ -z "${APP_KEY:-}" ]; then
+  echo ">> No APP_KEY value found. Generating ..."
   php artisan key:generate --force || true
 fi
 
-# 4) Clear caches (safe even on fresh installs)
+# 4) Clear caches
 php artisan config:clear || true
 php artisan route:clear  || true
-php artisan view:clear   || true
+if [ -d "resources/views" ]; then
+  php artisan view:clear || true
+fi
 
 # 5) Rebuild caches
 php artisan config:cache || true
 php artisan route:cache  || true
-php artisan view:cache   || true
+if [ -d "resources/views" ]; then
+  php artisan view:cache || true
+fi
+
+# Make sure packages are discovered (we skipped composer scripts at build)
+php artisan package:discover --ansi || true
 
 # 6) Storage symlink
 php artisan storage:link || true
@@ -45,7 +53,6 @@ DB_PORT="${DB_PORT:-3306}"
 
 if [ "$WAIT_FOR_DB" = "1" ] && [ -n "$DB_HOST" ]; then
   echo ">> Waiting for MySQL at ${DB_HOST}:${DB_PORT} ..."
-  # Requires mariadb-client installed in image (we installed it in Dockerfile)
   for i in $(seq 1 30); do
     if mysqladmin ping -h"$DB_HOST" -P"$DB_PORT" --silent >/dev/null 2>&1; then
       echo ">> MySQL is up."
