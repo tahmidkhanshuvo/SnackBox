@@ -8,7 +8,7 @@ return [
     'allowed_methods' => ['*'],
 
     // Accept multiple origins from a CSV env var
-    'allowed_origins' => explode(',', env('CORS_ALLOWED_ORIGINS', 'http://snackbox.test:5173,http://localhost:5173,http://127.0.0.1:5173')),
+    'allowed_origins' => explode(',', env('CORS_ALLOWED_ORIGINS')),
 
     // Keep patterns empty unless you need wildcards
     'allowed_origins_patterns' => [],
