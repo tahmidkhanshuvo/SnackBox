@@ -1,0 +1,38 @@
+# Ignore Git & VCS
+.git
+.gitignore
+.gitattributes
+
+# Node / frontend stuff
+node_modules
+npm-debug.log
+yarn-error.log
+
+# Laravel cache / logs / temp
+storage/logs
+storage/framework/cache
+storage/framework/sessions
+storage/framework/views
+
+# Local environment
+.env
+.env.local
+.env.development
+.env.production
+.env.testing
+
+# Composer artifacts
+/vendor
+
+# IDE / OS
+.idea
+.vscode
+*.swp
+*.swo
+*.DS_Store
+Thumbs.db
+
+# Tests
+/tests
+phpunit.xml
+coverage.xml
