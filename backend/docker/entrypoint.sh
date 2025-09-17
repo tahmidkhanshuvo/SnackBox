@@ -3,43 +3,74 @@ set -euo pipefail
 
 echo ">> Booting SnackBox (Laravel) ..."
 
-# If vendor is missing (e.g., during local dev), install it
+# 0) Composer in container runs as root without nags
+export COMPOSER_ALLOW_SUPERUSER=1
+
+# 1) Ensure vendor exists (useful for local 'docker run' scenarios)
 if [ ! -d "vendor" ]; then
-  echo ">> vendor/ not found. Running composer install ..."
-  composer install --no-dev --prefer-dist --optimize-autoloader --no-interaction
+  echo ">> vendor/ not found. Running composer install (no scripts) ..."
+  composer install --no-dev --prefer-dist --optimize-autoloader --no-interaction --no-scripts
 fi
 
-# Ensure .env exists
-if [ ! -f ".env" ] && [ -n "${APP_KEY:-}" ]; then
-  echo ">> .env missing but APP_KEY present in env. Creating minimal .env ..."
-  cp .env.example .env || true
-  # keep values from container env; Laravel will read from process env anyway
+# 2) Ensure .env exists (copy example if missing)
+if [ ! -f ".env" ]; then
+  echo ">> .env missing. Creating from .env.example ..."
+  cp .env.example .env || touch .env
 fi
 
-# Ensure app key
-if ! grep -q '^APP_KEY=base64:' .env 2>/dev/null && [ -z "${APP_KEY:-}" ]; then
-  echo ">> Generating APP_KEY ..."
+# 3) Ensure APP_KEY exists (either from env or by generating)
+APP_KEY_IN_DOTENV="$(grep -E '^APP_KEY=' .env || true)"
+if [ -z "${APP_KEY_IN_DOTENV}" ] && [ -z "${APP_KEY:-}" ]; then
+  echo ">> No APP_KEY found. Generating ..."
   php artisan key:generate --force || true
 fi
 
-# Cache config/routes/views (ignore errors if fresh)
+# 4) Clear caches (safe even on fresh installs)
 php artisan config:clear || true
 php artisan route:clear  || true
 php artisan view:clear   || true
 
+# 5) Rebuild caches
 php artisan config:cache || true
 php artisan route:cache  || true
 php artisan view:cache   || true
 
-# Storage symlink
+# 6) Storage symlink
 php artisan storage:link || true
 
-# Database migrate (only if DB vars likely set)
-if [ -n "${DB_HOST:-}" ]; then
+# 7) Optional: wait for DB before migrate (default: on)
+WAIT_FOR_DB="${WAIT_FOR_DB:-1}"
+DB_HOST="${DB_HOST:-}"
+DB_PORT="${DB_PORT:-3306}"
+
+if [ "$WAIT_FOR_DB" = "1" ] && [ -n "$DB_HOST" ]; then
+  echo ">> Waiting for MySQL at ${DB_HOST}:${DB_PORT} ..."
+  # Requires mariadb-client installed in image (we installed it in Dockerfile)
+  for i in $(seq 1 30); do
+    if mysqladmin ping -h"$DB_HOST" -P"$DB_PORT" --silent >/dev/null 2>&1; then
+      echo ">> MySQL is up."
+      break
+    fi
+    echo "   ... still waiting ($i/30)"
+    sleep 2
+  done
+fi
+
+# 8) Run migrations (toggle with RUN_MIGRATIONS=0 to skip)
+RUN_MIGRATIONS="${RUN_MIGRATIONS:-1}"
+if [ "$RUN_MIGRATIONS" = "1" ] && [ -n "$DB_HOST" ]; then
   echo ">> Running migrations ..."
-  php artisan migrate --force || {
-    echo "!! Migrations failed (continuing to boot so you can inspect logs)."
-  }
+  if ! php artisan migrate --force; then
+    echo "!! Migrations failed (continuing so you can inspect logs)."
+  fi
+fi
+
+# 9) Optional seeders (RUN_SEEDERS=1, SEED_CLASS=DatabaseSeeder by default)
+RUN_SEEDERS="${RUN_SEEDERS:-0}"
+SEED_CLASS="${SEED_CLASS:-Database\\Seeders\\DatabaseSeeder}"
+if [ "$RUN_SEEDERS" = "1" ]; then
+  echo ">> Seeding with ${SEED_CLASS} ..."
+  php artisan db:seed --class="${SEED_CLASS}" --force || echo "!! Seeding failed."
 fi
 
 echo ">> Ready. Launching Laravel server ..."
