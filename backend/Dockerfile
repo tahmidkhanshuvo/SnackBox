@@ -1,30 +1,46 @@
 # ---- Base image with PHP 8.3 and required extensions ----
 FROM php:8.3-cli
 
-# Install system dependencies and PHP extensions
-RUN apt-get update && apt-get install -y \
-    unzip git curl libpng-dev libonig-dev libxml2-dev zip libzip-dev mariadb-client \
-    && docker-php-ext-install pdo_mysql mbstring exif pcntl bcmath gd zip
+# Install system dependencies & PHP extensions
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    git unzip curl zip libzip-dev mariadb-client \
+    libpng-dev libjpeg62-turbo-dev libfreetype6-dev \
+    libonig-dev libxml2-dev \
+ && docker-php-ext-configure gd --with-freetype --with-jpeg \
+ && docker-php-ext-install -j$(nproc) pdo_mysql mbstring exif pcntl bcmath gd zip opcache \
+ && rm -rf /var/lib/apt/lists/*
 
 # Install Composer
 COPY --from=composer:2.7 /usr/bin/composer /usr/bin/composer
 
-# Set working directory
+# Workdir
 WORKDIR /var/www/html
 
-# Copy application code
+# Copy app
 COPY . .
 
-# Install Laravel dependencies
-RUN composer install --no-dev --optimize-autoloader
+# Install PHP deps (no dev), optimize autoloader
+RUN composer install --no-dev --prefer-dist --optimize-autoloader --no-interaction
 
-# Cache configs (ignore failures on fresh deploy)
-RUN php artisan config:cache || true \
- && php artisan route:cache || true \
- && php artisan view:cache  || true
+# Ensure writable dirs
+RUN mkdir -p storage bootstrap/cache \
+ && chown -R www-data:www-data storage bootstrap/cache \
+ && chmod -R 775 storage bootstrap/cache
 
-# Expose port for Render
-EXPOSE 10000
+# Add an entrypoint to do runtime tasks (optimize, storage:link, migrate) using runtime ENV
+COPY docker/entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
 
-# Start Laravel server
-CMD ["php", "artisan", "serve", "--host=0.0.0.0", "--port=10000"]
+# (Optional) OPcache production settings
+RUN echo 'opcache.enable=1'                 >  /usr/local/etc/php/conf.d/opcache.ini \
+ && echo 'opcache.enable_cli=1'             >> /usr/local/etc/php/conf.d/opcache.ini \
+ && echo 'opcache.validate_timestamps=0'    >> /usr/local/etc/php/conf.d/opcache.ini \
+ && echo 'opcache.jit_buffer_size=64M'      >> /usr/local/etc/php/conf.d/opcache.ini \
+ && echo 'opcache.memory_consumption=256'   >> /usr/local/etc/php/conf.d/opcache.ini
+
+# Expose (Render ignores EXPOSE but it's fine)
+EXPOSE 8080
+
+# Use entrypoint; bind to $PORT assigned by Render
+ENTRYPOINT ["/entrypoint.sh"]
+CMD ["php", "artisan", "serve", "--host=0.0.0.0", "--port=${PORT}"]
