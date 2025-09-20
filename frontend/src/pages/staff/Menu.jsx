@@ -30,7 +30,6 @@ function PrimaryBtn({ onClick, disabled=false, children, type="button" }) {
   return ( <button type={type} style={style} onClick={onClick} disabled={disabled}>{children}</button> );
 }
 
-// ✅ NEW: Toggle switch component for availability
 function ToggleSwitch({ enabled, onChange }) {
   const baseStyle = { width: 44, height: 24, borderRadius: 999, padding: 2, cursor: 'pointer', transition: 'background-color 0.2s ease' };
   const knobStyle = { width: 20, height: 20, borderRadius: 999, background: 'white', display: 'block', transition: 'transform 0.2s ease' };
@@ -99,21 +98,17 @@ export default function StaffMenu() {
     }
   }
 
-  // ✅ NEW: Handler for the availability toggle
   const handleToggleAvailability = async (itemToToggle) => {
-    // Optimistic UI update for instant feedback
     setItems(currentItems => 
       currentItems.map(item => 
         item.id === itemToToggle.id ? { ...item, availability: !item.availability } : item
       )
     );
     
-    // API call to persist the change
     try {
       await put(`/api/menu-items/${itemToToggle.id}`, { availability: !itemToToggle.availability });
     } catch (err) {
       alert("Failed to update availability. Please try again.");
-      // Revert UI on failure
       setItems(currentItems => 
         currentItems.map(item => 
           item.id === itemToToggle.id ? { ...item, availability: !item.availability } : item
@@ -137,8 +132,7 @@ export default function StaffMenu() {
           <table style={{ width:"100%", borderCollapse:"separate", borderSpacing:0 }}>
             <thead>
               <tr style={{ background:"#f8fafc" }}>
-                {/* ✅ CHANGE: Added "Available" column */}
-                {["Item", "Price", "Stock", "Available", ""].map(h=>(<th key={h} style={{ padding:10, textAlign:"left", fontSize:12, color:"#6b7280", textTransform:"uppercase", letterSpacing:".04em" }}>{h}</th>))}
+                {["Item", "Price", "Stock for Sale", "Available", ""].map(h=>(<th key={h} style={{ padding:10, textAlign:"left", fontSize:12, color:"#6b7280", textTransform:"uppercase", letterSpacing:".04em" }}>{h}</th>))}
               </tr>
             </thead>
             <tbody>
@@ -152,7 +146,6 @@ export default function StaffMenu() {
                   </td>
                   <td style={{ padding:10, fontWeight:700 }}>{currency(item.price)}</td>
                   <td style={{ padding:10, color: (item.stock < 10 ? '#ef4444' : 'inherit') }}>{item.stock ?? "N/A"}</td>
-                  {/* ✅ NEW: Render the ToggleSwitch in its own column */}
                   <td style={{ padding:10 }}>
                     <ToggleSwitch enabled={item.availability} onChange={() => handleToggleAvailability(item)} />
                   </td>
@@ -181,7 +174,6 @@ function ItemModal({ item, onClose, onSave }) {
   const [formData, setFormData] = useState({
     item_name: item?.name || "",
     price: item?.price || "",
-    // ✅ REMOVED: Stock is no longer editable here
     category: item?.category || "",
     description: item?.description || "",
   });
@@ -235,7 +227,6 @@ function ItemModal({ item, onClose, onSave }) {
             <label style={labelStyle} htmlFor="item_name">Item Name</label>
             <input style={inputStyle} type="text" id="item_name" name="item_name" value={formData.item_name} onChange={handleInputChange} required />
           </div>
-          {/* ✅ CHANGE: Removed Stock and made Price full width */}
           <div>
             <label style={labelStyle} htmlFor="price">Price</label>
             <input style={inputStyle} type="number" step="0.01" id="price" name="price" value={formData.price} onChange={handleInputChange} required />
@@ -262,7 +253,6 @@ function ItemModal({ item, onClose, onSave }) {
 function Sk(){
   return (
     <tr style={{ borderTop:"1px solid #eef2f7" }}>
-      {/* ✅ CHANGE: Skeleton now has 5 columns */}
       {Array.from({length:5}).map((_,i)=>(<td key={i} style={{ padding:10 }}><div style={{ height: i===0 ? 48 : 12, width: '80%', background:"#eef2f7", borderRadius: i===0 ? 8 : 999 }} /></td>))}
     </tr>
   );
