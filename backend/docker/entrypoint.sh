@@ -7,10 +7,10 @@ echo ">> Booting SnackBox (Laravel) ..."
 export COMPOSER_ALLOW_SUPERUSER=1
 
 # 1) Ensure vendor exists (useful for local 'docker run' scenarios)
-if [ ! -d "vendor" ]; then
-  echo ">> vendor/ not found. Running composer install (no scripts) ..."
-  composer install --no-dev --prefer-dist --optimize-autoloader --no-interaction --no-scripts
-fi
+#if [ ! -d "vendor" ]; then
+#  echo ">> vendor/ not found. Running composer install (no scripts) ..."
+#  composer install --no-dev --prefer-dist --optimize-autoloader --no-interaction --no-scripts
+#fi
 
 # 2) Ensure .env exists (copy example if missing)
 if [ ! -f ".env" ]; then
