@@ -68,6 +68,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get   ('/staff/{staff}',           [StaffController::class, 'show']);
     Route::put   ('/staff/{staff}',           [StaffController::class, 'update']);
     Route::patch ('/staff/{staff}/toggle',    [StaffController::class, 'toggleActive']);
+    Route::get   ('/staff/{staff}/shifts',    [StaffController::class, 'shifts'])->whereNumber('staff');
 
     // Shifts
     Route::get   ('/shifts',                  [ShiftController::class, 'index']);
@@ -75,6 +76,10 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get   ('/shifts/{shift}',          [ShiftController::class, 'show']);
     Route::put   ('/shifts/{shift}',          [ShiftController::class, 'update']);
     Route::patch ('/shifts/{shift}/toggle',   [ShiftController::class, 'toggleActive']);
+    Route::patch ('/shifts/{shift}/accept',   [ShiftController::class, 'accept'])->whereNumber('shift'); // Added whereNumber constraint
+    Route::patch ('/shifts/{shift}/request-change', [ShiftController::class, 'requestChange'])->whereNumber('shift'); // Added whereNumber constraint
+    Route::patch ('/shifts/{shift}/mark-late', [ShiftController::class, 'markLate'])->whereNumber('shift');
+    Route::patch ('/shifts/{shift}/mark-absent', [ShiftController::class, 'markAbsent'])->whereNumber('shift');
 
     // Salaries
     Route::get   ('/salaries',                [SalaryController::class, 'index']);
