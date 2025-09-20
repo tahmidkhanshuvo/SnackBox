@@ -92,6 +92,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::patch ('/complaints/{complaint}',              [ComplaintController::class, 'update']);
     Route::patch ('/complaints/{complaint}/assign/{staff}', [ComplaintController::class, 'assign']);
     Route::patch ('/complaints/{complaint}/resolve',      [ComplaintController::class, 'resolve']);
+    Route::patch ('/complaints/{complaint}/reply',        [ComplaintController::class, 'reply']);
 
     // Orders (constrain IDs to numbers to avoid /undefined)
     Route::get    ('/orders',                              [OrderController::class, 'index']);
