@@ -3,8 +3,10 @@
 namespace App\Http\Controllers;
 
 use App\Models\Staff;
+use App\Models\StaffShift;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
+use Carbon\Carbon;
 
 class StaffController extends Controller
 {
@@ -111,5 +113,28 @@ class StaffController extends Controller
         $staff->save();
 
         return response()->json(['id' => $staff->id, 'is_active' => $staff->is_active]);
+    }
+
+    /**
+     * GET /api/staff/{staff}/shifts?week=
+     * Fetches staff shifts for a specific week.
+     */
+    public function shifts(Request $request, Staff $staff)
+    {
+        $week = $request->input('week'); // YYYY-MM-DD format
+        if (!$week) {
+            return response()->json(['message' => 'Week parameter is required'], 400);
+        }
+
+        $startDate = Carbon::parse($week);
+        $endDate = $startDate->copy()->addDays(6);
+
+        $shifts = $staff->staffShifts()
+            ->with('shift')
+            ->whereBetween('date', [$startDate, $endDate])
+            ->orderBy('date')
+            ->get();
+
+        return response()->json($shifts);
     }
 }
