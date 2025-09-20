@@ -50,15 +50,15 @@ class DatabaseSeeder extends Seeder
             }
         }
 
-        // Seed Menu Items (5 records)
+            // Seed Menu Items (5 records) with image links
         DB::table('menu_items')->insert([
             [
                 'item_name' => 'Margherita Pizza',
                 'category' => 'Pizza',
                 'price' => 7.75,
                 'availability' => true,
-                'image_path' => '/images/margherita.jpg',
-                'image_alt' => 'Margherita Pizza',
+                'image_path' => 'https://t3.ftcdn.net/jpg/02/91/35/16/360_F_291351654_FFAS60r2iHUkOY69RPRwEOVS76EU4SdA.jpg',
+                'image_alt' => 'A delicious Margherita Pizza with fresh tomatoes and basil',
                 'created_at' => now(),
                 'updated_at' => now(),
             ],
@@ -67,8 +67,8 @@ class DatabaseSeeder extends Seeder
                 'category' => 'Pizza',
                 'price' => 22.00,
                 'availability' => true,
-                'image_path' => '/images/pepperoni.jpg',
-                'image_alt' => 'Pepperoni Pizza',
+                'image_path' => '/storage/images/pepperoni.jpg', // Placeholder
+                'image_alt' => 'A spicy Pepperoni Pizza with melted cheese',
                 'created_at' => now(),
                 'updated_at' => now(),
             ],
@@ -77,8 +77,8 @@ class DatabaseSeeder extends Seeder
                 'category' => 'Salad',
                 'price' => 10.00,
                 'availability' => true,
-                'image_path' => '/images/caesar.jpg',
-                'image_alt' => 'Caesar Salad',
+                'image_path' => '/storage/images/caesar.jpg', // Placeholder
+                'image_alt' => 'A fresh Caesar Salad with croutons and dressing',
                 'created_at' => now(),
                 'updated_at' => now(),
             ],
@@ -87,8 +87,8 @@ class DatabaseSeeder extends Seeder
                 'category' => 'Appetizer',
                 'price' => 6.25,
                 'availability' => true,
-                'image_path' => '/images/wings.jpg',
-                'image_alt' => 'Chicken Wings',
+                'image_path' => '/storage/images/chicken_wings.jpg',
+                'image_alt' => 'Crispy Chicken Wings with sauce',
                 'created_at' => now(),
                 'updated_at' => now(),
             ],
@@ -97,8 +97,8 @@ class DatabaseSeeder extends Seeder
                 'category' => 'Dessert',
                 'price' => 30.00,
                 'availability' => true,
-                'image_path' => '/images/tiramisu.jpg',
-                'image_alt' => 'Tiramisu',
+                'image_path' => '/storage/images/tiramisu.jpg', // Placeholder
+                'image_alt' => 'A creamy Tiramisu dessert with coffee flavor',
                 'created_at' => now(),
                 'updated_at' => now(),
             ],
