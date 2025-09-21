@@ -1,9 +1,17 @@
+// src/api/api.js
 import axios from "axios";
 
+/**
+ * We keep baseURL empty so requests are relative to the frontend origin.
+ * This matches your working setup (Vite proxy → Laravel) and fixes CSRF.
+ */
 const apiClient = axios.create({
-  baseURL: import.meta.env.VITE_API_BASE || "",
-  withCredentials: true,
-  headers: { "X-Requested-With": "XMLHttpRequest", Accept: "application/json" },
+  baseURL: "",                  // IMPORTANT: keep empty to use the dev proxy
+  withCredentials: true,        // send/receive Sanctum cookies
+  headers: {
+    "X-Requested-With": "XMLHttpRequest",
+    Accept: "application/json",
+  },
   xsrfCookieName: "XSRF-TOKEN",
   xsrfHeaderName: "X-XSRF-TOKEN",
 });
@@ -14,6 +22,7 @@ export async function ensureCsrf() {
   try { await csrfPromise; } finally { csrfPromise = null; }
 }
 
+// Auto-retry once on 419 (expired/missing CSRF)
 apiClient.interceptors.response.use(
   (res) => res,
   async (error) => {
@@ -34,9 +43,41 @@ export async function put (url, data, cfg)  { await ensureCsrf(); return apiClie
 export async function patch(url, data, cfg) { await ensureCsrf(); return apiClient.patch(url, data, cfg); }
 export async function del(url, cfg)         { await ensureCsrf(); return apiClient.delete(url, cfg); }
 
-/* ================== Auth ================== */
+/* ================== Auth (Sanctum cookie) ================== */
 export async function getMe() {
   const { data } = await apiClient.get("/api/auth/me");
+  return data?.user ?? data?.data ?? data ?? null;
+}
+
+export async function login(email, password, remember = false) {
+  const { data } = await post("/api/auth/login", { email, password, remember });
+  return data;
+}
+
+export async function register(payload) {
+  // payload: { name, email, password, password_confirmation, account_type: 'customer'|'staff' }
+  const { data } = await post("/api/auth/register", payload);
+  return data;
+}
+
+export async function logout() {
+  await post("/api/auth/logout");
+}
+
+/* ================== Admin ================== */
+export async function adminLogin(email, password) {
+  // IMPORTANT: the admin endpoint lives under /api/admin/login
+  const { data } = await post("/api/admin/login", { email, password });
+  return data; // cookie session → no token needed
+}
+
+export async function getPendingUsers() {
+  const { data } = await apiClient.get("/api/admin/pending-users");
+  return Array.isArray(data) ? data : (data?.data ?? []);
+}
+
+export async function approveUser(userId) {
+  const { data } = await post(`/api/admin/approve-user/${userId}`);
   return data;
 }
 
@@ -65,9 +106,7 @@ export async function getOrder(id) {
   return data?.data ?? data;
 }
 
-/** Cancel a pending order (sends optional reason) */
 export async function cancelOrder(id, reason) {
-  await ensureCsrf();
   const payload = { status: "cancelled" };
   if (reason && String(reason).trim()) payload.reason = String(reason).trim();
 
@@ -88,7 +127,6 @@ export async function cancelOrder(id, reason) {
   throw lastErr || new Error("No cancellation endpoint available on the API.");
 }
 
-/** NEW: generic status updater for staff screens (accept/ready/picked_up/completed, etc.) */
 export async function updateOrderStatus(id, status, extra = {}) {
   const payload = { status, ...extra };
   const { data } = await patch(`/api/orders/${id}/status`, payload);

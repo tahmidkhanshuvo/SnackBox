@@ -5,21 +5,28 @@ import GlobalFooter from "./UI/GlobalFooter.jsx";
 import { useAuth } from "../context/AuthContext.jsx";
 
 export default function Layout({ children, user: userProp, onLogout }) {
+  // prefer context user if available
   let ctxUser = null;
   try { ctxUser = typeof useAuth === "function" ? useAuth()?.user : null; } catch {}
   const user = userProp ?? ctxUser ?? null;
   const isAuthed = !!user;
 
+  // ---- Role precedence: admin > staff > customer/guest ----
   const role = useMemo(() => {
-    const r =
-      user?.role ??
-      (user?.is_admin ? "admin" : user?.staff ? "staff" : user ? "customer" : "guest");
-    return String(r || "guest").toLowerCase();
+    const rawRole = String(user?.role || "").toLowerCase();
+    const isAdmin = user?.is_admin || rawRole === "admin";
+    if (isAdmin) return "admin";
+    if (user?.staff) return "staff";
+    if (user) return rawRole || "customer";
+    return "guest";
   }, [user]);
 
-  // THEME: staff = green/white, admin = yellow/white
+  // Theme name follows role
+  const themeName = role === "admin" ? "admin" : role === "staff" ? "staff" : "default";
+
+  // THEME vars injected around Topbar so it picks up the palette
   const roleThemeVars = useMemo(() => {
-    switch (role) {
+    switch (themeName) {
       case "admin":
         return {
           ["--sb-topbar-border"]: "rgba(202, 138, 4, 0.5)", // amber-700 tint
@@ -36,12 +43,10 @@ export default function Layout({ children, user: userProp, onLogout }) {
           ["--sb-accent"]: "#065f46",
           ["--sb-ring"]: "0 0 0 3px rgba(34, 197, 94, 0.25)",
         };
-      case "customer":
-        return { ["--sb-topbar-border"]: "rgba(16, 185, 129, 0.35)" };
       default:
-        return {};
+        return { ["--sb-topbar-border"]: "rgba(16, 185, 129, 0.35)" };
     }
-  }, [role]);
+  }, [themeName]);
 
   const go = (path) => {
     if (!path || window.location.pathname === path) return;
@@ -118,10 +123,7 @@ export default function Layout({ children, user: userProp, onLogout }) {
     };
   }, [isAuthed]);
 
-  const onBrandClick = () =>
-    go(role === "staff" ? "/staff" : role === "admin" ? "/admin" : "/");
-
-  const themeName = role === "staff" ? "staff" : role === "admin" ? "admin" : "default";
+  const onBrandClick = () => go(role === "staff" ? "/staff" : role === "admin" ? "/admin" : "/");
 
   return (
     <div
