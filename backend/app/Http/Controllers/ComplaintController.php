@@ -22,14 +22,13 @@ class ComplaintController extends Controller
 
         $query = Complaint::query()->with(['user:id,name,email', 'handler:id,first_name,last_name']);
 
-        if (in_array($status, ['open','in_progress','resolved','closed'], true)) {
+        if (in_array($status, ['Pending','Assigned','Resolved'], true)) {
             $query->where('status', $status);
         }
         if ($userId)   $query->where('user_id', $userId);
         if ($handler)  $query->where('handled_by', $handler);
         if ($q !== '') $query->where(function ($w) use ($q) {
-            $w->where('subject','like',"%{$q}%")
-              ->orWhere('message','like',"%{$q}%")
+            $w->where('complaint_text','like',"%{$q}%")
               ->orWhere('response','like',"%{$q}%");
         });
 
@@ -38,21 +37,19 @@ class ComplaintController extends Controller
 
     /**
      * POST /api/complaints
-     * Body: { subject, message }
+     * Body: { complaint_text }
      * (Route is protected; uses authenticated user)
      */
     public function store(Request $request)
     {
         $data = $request->validate([
-            'subject' => ['required','string','max:255'],
-            'message' => ['required','string'],
+            'complaint_text' => ['required','string'],
         ]);
 
         $complaint = Complaint::create([
             'user_id' => optional($request->user())->id,
-            'subject' => $data['subject'],
-            'message' => $data['message'],
-            'status'  => 'open',
+            'complaint_text' => $data['complaint_text'],
+            'status'  => 'Pending',
         ]);
 
         return response()->json($complaint, 201);
@@ -65,7 +62,7 @@ class ComplaintController extends Controller
     public function update(Request $request, Complaint $complaint)
     {
         $data = $request->validate([
-            'status'   => ['sometimes', Rule::in(['open','in_progress','resolved','closed'])],
+            'status'   => ['sometimes', Rule::in(['Pending','Assigned','Resolved'])],
             'response' => ['sometimes','nullable','string'],
         ]);
 
@@ -80,7 +77,7 @@ class ComplaintController extends Controller
     public function assign(Request $request, Complaint $complaint, Staff $staff)
     {
         $complaint->handled_by = $staff->id;
-        $complaint->status     = $complaint->status === 'open' ? 'in_progress' : $complaint->status;
+        $complaint->status     = $complaint->status === 'Pending' ? 'Assigned' : $complaint->status;
         $complaint->save();
 
         return response()->json($complaint->fresh()->load('handler'));
@@ -105,7 +102,36 @@ class ComplaintController extends Controller
             }
         }
 
-        $complaint->markResolved($complaint->handled_by ?? 0, $data['response'] ?? null);
+        $complaint->status = 'Resolved';
+        if ($data['response']) {
+            $complaint->response = $data['response'];
+        }
+        $complaint->save();
+
+        return response()->json($complaint->fresh()->load('handler'));
+    }
+
+    /**
+     * PATCH /api/complaints/{complaint}/reply
+     * Body: { reply }
+     * Adds a reply to the complaint and updates the status if necessary.
+     */
+    public function reply(Request $request, Complaint $complaint)
+    {
+        $data = $request->validate([
+            'reply' => ['required', 'string'],
+        ]);
+
+        // Append the reply to the existing response or create a new one
+        $currentResponse = $complaint->response ?? '';
+        $complaint->response = $currentResponse . "\n\n[Reply at " . now() . "]: " . $data['reply'];
+
+        // If the complaint is still open, mark it as in_progress if assigned, otherwise leave as is
+        if ($complaint->status === 'Pending' && $complaint->handled_by) {
+            $complaint->status = 'Assigned';
+        }
+
+        $complaint->save();
 
         return response()->json($complaint->fresh()->load('handler'));
     }

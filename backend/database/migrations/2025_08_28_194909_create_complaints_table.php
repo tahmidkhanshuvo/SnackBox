@@ -20,8 +20,8 @@ return new class extends Migration
             $table->string('subject');
             $table->text('message');
 
-            $table->enum('status', ['open','in_progress','resolved','closed'])
-                  ->default('open');
+            $table->enum('status', ['Pending', 'Assigned', 'Resolved', 'Closed'])
+                  ->default('Pending');
 
             // Internal response / notes
             $table->text('response')->nullable();
