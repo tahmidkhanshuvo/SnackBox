@@ -1,6 +1,5 @@
 <?php
 
-// app/Http/Controllers/AuthController.php
 namespace App\Http\Controllers;
 
 use App\Models\User;
@@ -15,7 +14,7 @@ use Illuminate\Validation\ValidationException;
 
 class AuthController extends Controller
 {
-    protected function augmentUser(User $user): User
+    protected function augmentUser(User $user)
     {
         $user->load('staff');
         $url = $user->avatar_path ? Storage::disk('public')->url($user->avatar_path) : null;
@@ -26,29 +25,39 @@ class AuthController extends Controller
     public function register(Request $request)
     {
         $data = $request->validate([
-            'name' => ['required', 'string', 'max:255'],
-            'email' => ['required', 'email', 'max:255', 'unique:users,email'],
-            'password' => ['required', 'confirmed', Password::min(8)],
+            'name'         => ['required', 'string', 'max:255'],
+            'email'        => ['required', 'email', 'max:255', 'unique:users,email'],
+            'password'     => ['required', 'confirmed', Password::min(8)],
             'account_type' => ['required', 'string', Rule::in(['customer', 'staff'])],
         ]);
 
+        // role: customer -> 'customer', staff -> 'pending'
+        $role = $data['account_type'] === 'staff' ? 'pending' : 'customer';
+
         $user = User::create([
-            'name' => $data['name'],
-            'email' => $data['email'],
+            'name'     => $data['name'],
+            'email'    => $data['email'],
             'password' => Hash::make($data['password']),
+            'role'     => $role,
         ]);
 
         if ($data['account_type'] === 'staff') {
             $nameParts = explode(' ', $data['name'], 2);
             Staff::create([
-                'user_id' => $user->id,
-                'first_name' => $nameParts[0],
+                'user_id'   => $user->id,
+                'first_name'=> $nameParts[0],
                 'last_name' => $nameParts[1] ?? '',
-                'email' => $user->email,
-                'is_active' => true,
+                'email'     => $user->email,
+                'is_active' => false, // require approval
             ]);
+
+            // DO NOT LOG IN staff yet
+            return response()->json([
+                'message' => 'Registration submitted. An admin must approve your account before you can sign in.',
+            ], 202);
         }
 
+        // Customers: login immediately
         Auth::login($user, remember: false);
         $request->session()->regenerate();
 
@@ -56,14 +65,14 @@ class AuthController extends Controller
 
         return response()->json([
             'message' => 'Registered',
-            'user' => $user,
+            'user'    => $user,
         ], 201);
     }
 
     public function login(Request $request)
     {
         $credentials = $request->validate([
-            'email' => ['required', 'email'],
+            'email'    => ['required', 'email'],
             'password' => ['required', 'string'],
         ]);
 
@@ -75,44 +84,61 @@ class AuthController extends Controller
             ]);
         }
 
+        $user = Auth::user();
+
+        // Block pending staff
+        if (strtolower($user->role ?? '') === 'pending') {
+            Auth::logout();
+            $request->session()->invalidate();
+            $request->session()->regenerateToken();
+            throw ValidationException::withMessages([
+                'email' => ['Your staff account is pending admin approval.'],
+            ]);
+        }
+
         $request->session()->regenerate();
 
-        $user = Auth::user();
         $user = $this->augmentUser($user);
 
         return response()->json([
             'message' => 'Logged in',
-            'user' => $user,
+            'user'    => $user,
         ]);
     }
 
     public function adminLogin(Request $request)
     {
         $credentials = $request->validate([
-            'email' => ['required', 'email'],
+            'email'    => ['required', 'email'],
             'password' => ['required', 'string'],
         ]);
 
-        // Get admin credentials from .env
-        $adminEmail = env('ADMIN_EMAIL', 'admin@example.com'); // Default for testing
-        $adminPassword = env('ADMIN_PASSWORD', 'admin123');    // Default for testing
+        $adminEmail    = env('ADMIN_EMAIL', 'admin@yourdomain.com');
+        $adminPassword = env('ADMIN_PASSWORD', 'secureAdminPassword123');
 
-        if ($credentials['email'] === $adminEmail && $credentials['password'] === $adminPassword) {
-            $user = User::firstOrCreate(
-                ['email' => $adminEmail],
-                [
-                    'name' => 'Admin User',
-                    'password' => Hash::make($adminPassword),
-                    'role' => 'admin',
-                ]
-            );
+        // Ensure admin user exists with hashed password
+        $user = User::firstOrCreate(
+            ['email' => $adminEmail],
+            [
+                'name'     => 'Admin User',
+                'password' => Hash::make($adminPassword),
+                'role'     => 'admin',
+            ]
+        );
+
+        if ($credentials['email'] === $adminEmail && Hash::check($credentials['password'], $user->password)) {
             Auth::login($user, remember: false);
             $request->session()->regenerate();
+
+            // If you prefer cookie-only auth, no need to return a token.
+            // $token = $user->createToken('admin-token')->plainTextToken;
+
             $user = $this->augmentUser($user);
 
             return response()->json([
                 'message' => 'Admin logged in',
-                'user' => $user,
+                'user'    => $user,
+                // 'token' => $token, // optional
             ]);
         }
 
@@ -124,6 +150,9 @@ class AuthController extends Controller
     public function me(Request $request)
     {
         $user = $request->user();
+        if (!$user) {
+            return response()->json(['message' => 'Unauthenticated'], 401);
+        }
         $user = $this->augmentUser($user);
         return response()->json($user);
     }
@@ -139,7 +168,7 @@ class AuthController extends Controller
     public function tokenLogin(Request $request)
     {
         $data = $request->validate([
-            'email' => ['required', 'email'],
+            'email'    => ['required', 'email'],
             'password' => ['required', 'string'],
         ]);
 
@@ -149,13 +178,13 @@ class AuthController extends Controller
             ]);
         }
 
-        $user = Auth::user();
-        $user = $this->augmentUser($user);
+        $user  = Auth::user();
+        $user  = $this->augmentUser($user);
         $token = $user->createToken('api')->plainTextToken;
 
         return response()->json([
             'token' => $token,
-            'user' => $user,
+            'user'  => $user,
         ]);
     }
 
@@ -170,11 +199,11 @@ class AuthController extends Controller
         $user = $request->user();
 
         $data = $request->validate([
-            'name' => ['sometimes', 'string', 'max:255'],
-            'email' => ['sometimes', 'email', 'max:255', Rule::unique('users', 'email')->ignore($user->id)],
-            'contact_no' => ['sometimes', 'nullable', 'string', 'max:50'],
-            'password' => ['sometimes', 'nullable', 'confirmed', Password::min(8)],
-            'avatar' => ['sometimes', 'file', 'image', 'mimes:jpg,jpeg,png,webp', 'max:2048'],
+            'name'        => ['sometimes', 'string', 'max:255'],
+            'email'       => ['sometimes', 'email', 'max:255', Rule::unique('users', 'email')->ignore($user->id)],
+            'contact_no'  => ['sometimes', 'nullable', 'string', 'max:50'],
+            'password'    => ['sometimes', 'nullable', 'confirmed', Password::min(8)],
+            'avatar'      => ['sometimes', 'file', 'image', 'mimes:jpg,jpeg,png,webp', 'max:2048'],
         ]);
 
         if (!empty($data['password'])) {
@@ -200,7 +229,7 @@ class AuthController extends Controller
 
         return response()->json([
             'message' => 'Updated',
-            'user' => $user,
+            'user'    => $user,
         ]);
     }
 }

@@ -2,9 +2,8 @@
 
 namespace App\Models;
 
-use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
-use Illuminate\Database\Eloquent\Relations\HasOne; // Import the HasOne relationship
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Laravel\Sanctum\HasApiTokens;
@@ -14,8 +13,7 @@ class User extends Authenticatable
     use HasApiTokens, HasFactory, Notifiable;
 
     /**
-     * The attributes that are mass assignable.
-     * Adjust according to your users table.
+     * Mass-assignable attributes.
      */
     protected $fillable = [
         'name',
@@ -29,7 +27,7 @@ class User extends Authenticatable
     ];
 
     /**
-     * The attributes hidden for arrays / JSON.
+     * Hidden attributes for arrays / JSON.
      */
     protected $hidden = [
         'password',
@@ -41,17 +39,53 @@ class User extends Authenticatable
      */
     protected $casts = [
         'email_verified_at' => 'datetime',
-        'password' => 'hashed', // It's good practice to ensure password is cast to hashed
+        'password'          => 'hashed',
     ];
 
     /**
-     * --- THIS IS THE FIX ---
-     * Defines the one-to-one relationship between a User and a Staff profile.
-     * This tells Laravel how to find the staff details for a given user.
+     * One-to-one Staff profile.
+     * Staff table is explicitly named 'staff' (model handles it), FK is user_id.
      */
     public function staff(): HasOne
     {
-        return $this->hasOne(Staff::class);
+        return $this->hasOne(Staff::class, 'user_id', 'id');
+    }
+
+    /* ----------------- Convenience helpers for roles/approval ----------------- */
+
+    /**
+     * True if role is 'admin' or 'superadmin'.
+     */
+    public function isAdmin(): bool
+    {
+        $role = strtolower((string) ($this->role ?? ''));
+        return in_array($role, ['admin', 'superadmin'], true);
+    }
+
+    /**
+     * True if role is 'staff'.
+     */
+    public function isStaff(): bool
+    {
+        return strtolower((string) ($this->role ?? '')) === 'staff';
+    }
+
+    /**
+     * True if the related staff row exists and is active/approved.
+     */
+    public function isStaffApproved(): bool
+    {
+        return (bool) ($this->staff?->is_active ?? false);
+    }
+
+    /**
+     * Virtual display name: prefer split name when available, fallback to name.
+     */
+    public function getDisplayNameAttribute(): string
+    {
+        $first = trim((string) ($this->first_name ?? ''));
+        $last  = trim((string) ($this->last_name ?? ''));
+        $full  = trim($first . ' ' . $last);
+        return $full !== '' ? $full : (string) ($this->name ?? '');
     }
 }
-

@@ -3,13 +3,13 @@ import React from "react";
 
 /**
  * GlobalFooter (overlap-proof)
- * - Now supports `theme`: "default" | "staff" | "admin" (staff = green)
- * - Uses CSS variables; theme overrides them locally on the footer element
+ * - Supports `theme`: "default" | "staff" | "admin"
+ * - Uses CSS variables scoped to the footer to avoid global leaks
  */
 export default function GlobalFooter({
   position = "static",
   className = "",
-  theme = "default", // <— NEW
+  theme = "default",
   brand = {
     name: "SnackBox",
     logo: <span style={{ fontSize: 18 }}>🍽</span>,
@@ -57,7 +57,8 @@ export default function GlobalFooter({
   return (
     <>
       <style>{`
-        :root{
+        /* ===== Scoped defaults (no global :root leak) ===== */
+        .sx-footer{
           /* Default (brand = red/orange) */
           --sb-primary:#ef4444;        /* main */
           --sb-primary-700:#dc2626;    /* dark */
@@ -66,6 +67,11 @@ export default function GlobalFooter({
           --sb-accent:#0f172a; --sb-muted:#6b7280; --sb-pad:18px;
           --sb-card-radius:18px; --sb-ring:0 0 0 3px rgba(239,68,68,.25);
           --sx-max:1200px; --sx-news-max:460px; --sx-nudge:14px;
+
+          width:100%; color:var(--sb-accent);
+          background: linear-gradient(180deg, rgba(15,23,42,.02), rgba(15,23,42,0)), #fff;
+          border-top:1px solid rgba(15,23,42,.06);
+          margin-top: clamp(20px, 3vw, 40px);
         }
 
         /* ===== Theme overrides (scoped to footer subtree) ===== */
@@ -77,20 +83,16 @@ export default function GlobalFooter({
           --sb-primary-2:#34d399;     /* emerald-400 for gradients */
           --sb-ring:0 0 0 3px rgba(34,197,94,.25);
         }
+
+        /* Admin palette (amber) to match Topbar/Layout */
         .sx-footer[data-theme="admin"]{
-          /* Optional violet admin palette */
-          --sb-primary:#4f46e5;       /* indigo-600 */
-          --sb-primary-700:#4338ca;   /* indigo-700 */
-          --sb-primary-50:#e0e7ff;    /* indigo-50 */
-          --sb-primary-2:#60a5fa;     /* sky-400 */
-          --sb-ring:0 0 0 3px rgba(79,70,229,.25);
+          --sb-primary:#facc15;       /* yellow-400 */
+          --sb-primary-700:#ca8a04;   /* amber-700  */
+          --sb-primary-50:#fef9c3;    /* yellow-100 */
+          --sb-primary-2:#f59e0b;     /* amber-500 for gradient partner */
+          --sb-ring:0 0 0 3px rgba(250,204,21,.25);
         }
 
-        .sx-footer{
-          width:100%; color:var(--sb-accent);
-          background: linear-gradient(180deg, rgba(15,23,42,.02), rgba(15,23,42,0)), #fff;
-          border-top:1px solid rgba(15,23,42,.06);
-        }
         .sx-footer.is-sticky{ position:sticky; bottom:0; z-index:10; }
         .sx-footer.is-fixed { position:fixed;  bottom:0; left:0; right:0; z-index:20; }
 
@@ -187,7 +189,6 @@ export default function GlobalFooter({
         @media (min-width:1280px){ .sx-col.news .sx-letter { max-width: var(--sx-news-max); } }
         @media (max-width:520px){ .sx-field{ grid-template-columns:1fr; } .sx-cta{ width:100%; } }
 
-        .sx-footer { margin-top: clamp(20px, 3vw, 40px); }
         .sx-bottom{
           border-top:1px solid rgba(15,23,42,.06);
           display:flex; flex-wrap:wrap; gap:10px; justify-content:space-between; align-items:center;
@@ -198,7 +199,7 @@ export default function GlobalFooter({
       `}</style>
 
       <footer
-        data-theme={theme}               // <— NEW: theme hook (e.g., "staff")
+        data-theme={theme}
         className={[
           "sx-footer",
           position === "sticky" ? "is-sticky" : "",
