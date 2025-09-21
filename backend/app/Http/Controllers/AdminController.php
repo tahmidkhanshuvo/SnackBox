@@ -5,26 +5,10 @@ namespace App\Http\Controllers;
 use App\Models\User;
 use App\Models\Staff;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
 
 class AdminController extends Controller
 {
-    public function __construct()
-    {
-        // All admin API routes require an authenticated Sanctum session
-        $this->middleware('auth:sanctum');
-
-        // Enforce admin-only access
-        $this->middleware(function ($request, $next) {
-            $role = strtolower((string) (Auth::user()->role ?? ''));
-            if (!in_array($role, ['admin', 'superadmin'], true)) {
-                return response()->json(['message' => 'Unauthorized'], 403);
-            }
-            return $next($request);
-        });
-    }
-
     /**
      * Users awaiting approval:
      * - role = 'pending' OR
@@ -44,7 +28,6 @@ class AdminController extends Controller
                     'avatar_url',
                     $u->avatar_path ? Storage::disk('public')->url($u->avatar_path) : null
                 );
-                // Ensure minimal shape expected by frontend
                 return [
                     'id'          => $u->id,
                     'name'        => $u->name,
@@ -74,7 +57,6 @@ class AdminController extends Controller
         /** @var User $user */
         $user = User::with('staff')->findOrFail($id);
 
-        // Don't allow approving admins
         $role = strtolower((string) ($user->role ?? ''));
         if (in_array($role, ['admin', 'superadmin'], true)) {
             return response()->json(['message' => 'Cannot approve an admin user'], 400);
@@ -99,7 +81,6 @@ class AdminController extends Controller
         if ($role === 'pending' || $role === '' || $role === null) {
             $user->role = 'staff';
         }
-        // Optional audit field if your users table has it
         if (schema_has_column('users', 'approved_at')) {
             $user->approved_at = now();
         }

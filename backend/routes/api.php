@@ -12,22 +12,22 @@ use App\Http\Controllers\OrderController;
 use App\Http\Controllers\ShiftController;
 use App\Http\Controllers\AdminController;
 
-/*
-|--------------------------------------------------------------------------
-| API Routes  (all endpoints here are prefixed with /api)
-|--------------------------------------------------------------------------
-| Sanctum will treat stateful SPA requests as authenticated (with cookies)
-| when SANCTUM_STATEFUL_DOMAINS and CORS are configured correctly.
-*/
-
 Route::get('/healthz', fn () => response()->json(['ok' => true, 'time' => now()]));
 
-// ------------------------ Public catalog-style endpoints
+/*
+|--------------------------------------------------------------------------
+| Public catalog
+|--------------------------------------------------------------------------
+*/
 Route::get('/menu-items', [MenuItemController::class, 'index']);
 Route::get('/menu-items/{menuItem}', [MenuItemController::class, 'show'])->whereNumber('menuItem');
 Route::get('/menu-items/{menuItem}/stock', [InventoryMovementController::class, 'stock'])->whereNumber('menuItem');
 
-// ------------------------ Auth (API namespace)
+/*
+|--------------------------------------------------------------------------
+| Auth
+|--------------------------------------------------------------------------
+*/
 Route::prefix('auth')->group(function () {
     Route::post('/register', [AuthController::class, 'register'])->middleware('throttle:6,1');
     Route::post('/login', [AuthController::class, 'login'])->middleware('throttle:6,1');
@@ -39,15 +39,17 @@ Route::prefix('auth')->group(function () {
     });
 });
 
-/*
- * NOTE: This endpoint resolves to /api/admin/login (NOT /admin/login).
- * If your frontend calls /admin/login, define that in routes/web.php.
- */
+// Admin login endpoint lives under /api/admin/login (cookie session via Sanctum)
 Route::post('/admin/login', [AuthController::class, 'adminLogin'])->middleware('throttle:6,1');
 
-// ------------------------ Authenticated API
+/*
+|--------------------------------------------------------------------------
+| Authenticated API (Sanctum cookie session)
+|--------------------------------------------------------------------------
+*/
 Route::middleware('auth:sanctum')->group(function () {
-    // Menu + Inventory
+
+    // ---- Menu + Inventory
     Route::post('/menu-items', [MenuItemController::class, 'store']);
     Route::post('/menu-items/{menuItem}/image', [MenuItemController::class, 'uploadImage'])->whereNumber('menuItem');
     Route::put('/menu-items/{menuItem}', [MenuItemController::class, 'update'])->whereNumber('menuItem');
@@ -55,7 +57,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/menu-items/{menuItem}/inventory/move', [InventoryMovementController::class, 'store'])->whereNumber('menuItem');
     Route::get('/menu-items/{menuItem}/movements', [InventoryMovementController::class, 'index'])->whereNumber('menuItem');
 
-    // Staff & Shifts
+    // ---- Staff & Shifts
     Route::get('/staff', [StaffController::class, 'index']);
     Route::post('/staff', [StaffController::class, 'store']);
     Route::get('/staff/{staff}', [StaffController::class, 'show'])->whereNumber('staff');
@@ -73,12 +75,12 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::patch('/shifts/{shift}/mark-late', [ShiftController::class, 'markLate'])->whereNumber('shift');
     Route::patch('/shifts/{shift}/mark-absent', [ShiftController::class, 'markAbsent'])->whereNumber('shift');
 
-    // Salaries
+    // ---- Salaries
     Route::get('/salaries', [SalaryController::class, 'index']);
     Route::post('/salaries', [SalaryController::class, 'store']);
     Route::patch('/salaries/{salary}/mark-paid', [SalaryController::class, 'markPaid'])->whereNumber('salary');
 
-    // Complaints
+    // ---- Complaints
     Route::post('/complaints', [ComplaintController::class, 'store']);
     Route::get('/complaints', [ComplaintController::class, 'index']);
     Route::patch('/complaints/{complaint}', [ComplaintController::class, 'update'])->whereNumber('complaint');
@@ -86,7 +88,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::patch('/complaints/{complaint}/resolve', [ComplaintController::class, 'resolve'])->whereNumber('complaint');
     Route::patch('/complaints/{complaint}/reply', [ComplaintController::class, 'reply'])->whereNumber('complaint');
 
-    // Orders
+    // ---- Orders (you said these were required)
     Route::get('/orders', [OrderController::class, 'index']);
     Route::post('/orders', [OrderController::class, 'store']);
     Route::get('/orders/{order}', [OrderController::class, 'show'])->whereNumber('order');
@@ -96,8 +98,12 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::patch('/orders/{order}/status', [OrderController::class, 'updateStatus'])->whereNumber('order');
     Route::patch('/orders/{order}', [OrderController::class, 'updateStatus'])->whereNumber('order');
 
-    // Admin area (API)
-    Route::prefix('admin')->group(function () {
+    /*
+    |----------------------------------------------------------------------
+    | Admin area (admin.only alias; no Kernel.php needed)
+    |----------------------------------------------------------------------
+    */
+    Route::prefix('admin')->middleware('admin.only')->group(function () {
         Route::get('/pending-users', [AdminController::class, 'pendingUsers']);
         Route::post('/approve-user/{id}', [AdminController::class, 'approveUser'])->whereNumber('id');
         Route::get('/menu-items', [AdminController::class, 'adminMenuItems']);

@@ -3,7 +3,6 @@
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
-use Laravel\Sanctum\Http\Middleware\EnsureFrontendRequestsAreStateful;
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
@@ -13,13 +12,15 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware) {
-        // Make the API "stateful" for SPA auth with Sanctum (sessions + CSRF).
-        // This is the Laravel 12 way to replace old Kernel.php tweaks.
+        // Make the API "stateful" for SPA auth with Sanctum (sessions + CSRF)
         $middleware->statefulApi();
 
-        // (Optional) If you prefer being explicit instead of statefulApi():
-        // $middleware->appendToGroup('api', EnsureFrontendRequestsAreStateful::class);
+        // Register aliases (used in routes/controllers)
+        $middleware->alias([
+            'admin.only' => \App\Http\Middleware\AdminOnly::class,
+        ]);
     })
     ->withExceptions(function (Exceptions $exceptions) {
         //
-    })->create();
+    })
+    ->create();
