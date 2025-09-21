@@ -52,6 +52,11 @@ class Staff extends Model
         return $this->belongsTo(Shift::class);
     }
 
+    public function staffShifts()
+    {
+        return $this->hasMany(StaffShift::class);
+    }
+
     /* Helpers */
     public function getFullNameAttribute(): string
     {

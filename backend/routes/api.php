@@ -1,5 +1,6 @@
 <?php
 
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\MenuItemController;
@@ -9,96 +10,103 @@ use App\Http\Controllers\SalaryController;
 use App\Http\Controllers\ComplaintController;
 use App\Http\Controllers\OrderController;
 use App\Http\Controllers\ShiftController;
+use App\Http\Controllers\AdminController;
+
+Route::get('/healthz', fn () => response()->json(['ok' => true, 'time' => now()]));
 
 /*
 |--------------------------------------------------------------------------
-| API Routes
+| Public catalog
 |--------------------------------------------------------------------------
-|
-| All routes in this file are automatically prefixed with `/api`.
-| Sanctum’s SPA auth cookies are handled automatically for these routes.
-|
 */
+Route::get('/menu-items', [MenuItemController::class, 'index']);
+Route::get('/menu-items/{menuItem}', [MenuItemController::class, 'show'])->whereNumber('menuItem');
+Route::get('/menu-items/{menuItem}/stock', [InventoryMovementController::class, 'stock'])->whereNumber('menuItem');
 
-/* -----------------------------
-| Public health & catalog
-|------------------------------*/
-Route::get('/healthz', fn () => response()->json(['ok' => true, 'time' => now()]));
-
-Route::get('/menu-items',                  [MenuItemController::class, 'index']);
-Route::get('/menu-items/{menuItem}',       [MenuItemController::class, 'show']);
-Route::get('/menu-items/{menuItem}/stock', [InventoryMovementController::class, 'stock']);
-
-/* -----------------------------
-| Authentication (rate-limited)
-|------------------------------*/
-// /api/auth/*
+/*
+|--------------------------------------------------------------------------
+| Auth
+|--------------------------------------------------------------------------
+*/
 Route::prefix('auth')->group(function () {
     Route::post('/register', [AuthController::class, 'register'])->middleware('throttle:6,1');
-    Route::post('/login',    [AuthController::class, 'login'])->middleware('throttle:6,1');
+    Route::post('/login', [AuthController::class, 'login'])->middleware('throttle:6,1');
 
-    // Everything below requires an authenticated session (Sanctum)
     Route::middleware('auth:sanctum')->group(function () {
-        Route::get('/me',     [AuthController::class, 'me']);        // whoami
-        Route::patch('/me',   [AuthController::class, 'updateMe']);  // update profile (JSON or multipart)
-        Route::post('/logout',[AuthController::class, 'logout']);
+        Route::get('/me', [AuthController::class, 'me']);
+        Route::patch('/me', [AuthController::class, 'updateMe']);
+        Route::post('/logout', [AuthController::class, 'logout']);
     });
 });
 
-// Optional short alias: /api/me (same as /api/auth/me)
-Route::middleware('auth:sanctum')->get('/me', [AuthController::class, 'me']);
+// Admin login endpoint lives under /api/admin/login (cookie session via Sanctum)
+Route::post('/admin/login', [AuthController::class, 'adminLogin'])->middleware('throttle:6,1');
 
-/* -----------------------------
-| Protected resources
-|------------------------------*/
+/*
+|--------------------------------------------------------------------------
+| Authenticated API (Sanctum cookie session)
+|--------------------------------------------------------------------------
+*/
 Route::middleware('auth:sanctum')->group(function () {
-    // Menu items (manage + image)
-    Route::post  ('/menu-items',                  [MenuItemController::class, 'store']);
-    Route::post  ('/menu-items/{menuItem}/image', [MenuItemController::class, 'uploadImage']);
-    Route::put   ('/menu-items/{menuItem}',       [MenuItemController::class, 'update']);
-    Route::delete('/menu-items/{menuItem}',       [MenuItemController::class, 'destroy']);
 
-    // Inventory movements
-    Route::post('/menu-items/{menuItem}/inventory/move', [InventoryMovementController::class, 'store']);
-    Route::get ('/menu-items/{menuItem}/movements',      [InventoryMovementController::class, 'index']);
+    // ---- Menu + Inventory
+    Route::post('/menu-items', [MenuItemController::class, 'store']);
+    Route::post('/menu-items/{menuItem}/image', [MenuItemController::class, 'uploadImage'])->whereNumber('menuItem');
+    Route::put('/menu-items/{menuItem}', [MenuItemController::class, 'update'])->whereNumber('menuItem');
+    Route::delete('/menu-items/{menuItem}', [MenuItemController::class, 'destroy'])->whereNumber('menuItem');
+    Route::post('/menu-items/{menuItem}/inventory/move', [InventoryMovementController::class, 'store'])->whereNumber('menuItem');
+    Route::get('/menu-items/{menuItem}/movements', [InventoryMovementController::class, 'index'])->whereNumber('menuItem');
 
-    // Staff
-    Route::get   ('/staff',                   [StaffController::class, 'index']);
-    Route::post  ('/staff',                   [StaffController::class, 'store']);
-    Route::get   ('/staff/{staff}',           [StaffController::class, 'show']);
-    Route::put   ('/staff/{staff}',           [StaffController::class, 'update']);
-    Route::patch ('/staff/{staff}/toggle',    [StaffController::class, 'toggleActive']);
+    // ---- Staff & Shifts
+    Route::get('/staff', [StaffController::class, 'index']);
+    Route::post('/staff', [StaffController::class, 'store']);
+    Route::get('/staff/{staff}', [StaffController::class, 'show'])->whereNumber('staff');
+    Route::put('/staff/{staff}', [StaffController::class, 'update'])->whereNumber('staff');
+    Route::patch('/staff/{staff}/toggle', [StaffController::class, 'toggleActive'])->whereNumber('staff');
 
-    // Shifts
-    Route::get   ('/shifts',                  [ShiftController::class, 'index']);
-    Route::post  ('/shifts',                  [ShiftController::class, 'store']);
-    Route::get   ('/shifts/{shift}',          [ShiftController::class, 'show']);
-    Route::put   ('/shifts/{shift}',          [ShiftController::class, 'update']);
-    Route::patch ('/shifts/{shift}/toggle',   [ShiftController::class, 'toggleActive']);
+    Route::get('/staff/{staff}/shifts', [StaffController::class, 'shifts'])->whereNumber('staff');
+    Route::get('/shifts', [ShiftController::class, 'index']);
+    Route::post('/shifts', [ShiftController::class, 'store']);
+    Route::get('/shifts/{shift}', [ShiftController::class, 'show'])->whereNumber('shift');
+    Route::put('/shifts/{shift}', [ShiftController::class, 'update'])->whereNumber('shift');
+    Route::patch('/shifts/{shift}/toggle', [ShiftController::class, 'toggleActive'])->whereNumber('shift');
+    Route::patch('/shifts/{shift}/accept', [ShiftController::class, 'accept'])->whereNumber('shift');
+    Route::patch('/shifts/{shift}/request-change', [ShiftController::class, 'requestChange'])->whereNumber('shift');
+    Route::patch('/shifts/{shift}/mark-late', [ShiftController::class, 'markLate'])->whereNumber('shift');
+    Route::patch('/shifts/{shift}/mark-absent', [ShiftController::class, 'markAbsent'])->whereNumber('shift');
 
-    // Salaries
-    Route::get   ('/salaries',                [SalaryController::class, 'index']);
-    Route::post  ('/salaries',                [SalaryController::class, 'store']);
-    Route::patch ('/salaries/{salary}/mark-paid', [SalaryController::class, 'markPaid']);
+    // ---- Salaries
+    Route::get('/salaries', [SalaryController::class, 'index']);
+    Route::post('/salaries', [SalaryController::class, 'store']);
+    Route::patch('/salaries/{salary}/mark-paid', [SalaryController::class, 'markPaid'])->whereNumber('salary');
 
-    // Complaints
-    Route::post  ('/complaints',                          [ComplaintController::class, 'store']);
-    Route::get   ('/complaints',                          [ComplaintController::class, 'index']);
-    Route::patch ('/complaints/{complaint}',              [ComplaintController::class, 'update']);
-    Route::patch ('/complaints/{complaint}/assign/{staff}', [ComplaintController::class, 'assign']);
-    Route::patch ('/complaints/{complaint}/resolve',      [ComplaintController::class, 'resolve']);
+    // ---- Complaints
+    Route::post('/complaints', [ComplaintController::class, 'store']);
+    Route::get('/complaints', [ComplaintController::class, 'index']);
+    Route::patch('/complaints/{complaint}', [ComplaintController::class, 'update'])->whereNumber('complaint');
+    Route::patch('/complaints/{complaint}/assign/{staff}', [ComplaintController::class, 'assign'])->whereNumber('complaint')->whereNumber('staff');
+    Route::patch('/complaints/{complaint}/resolve', [ComplaintController::class, 'resolve'])->whereNumber('complaint');
+    Route::patch('/complaints/{complaint}/reply', [ComplaintController::class, 'reply'])->whereNumber('complaint');
 
-    // Orders (constrain IDs to numbers to avoid /undefined)
-    Route::get    ('/orders',                              [OrderController::class, 'index']);
-    Route::post   ('/orders',                              [OrderController::class, 'store']);
-    Route::get    ('/orders/{order}',                      [OrderController::class, 'show'])->whereNumber('order');
-    Route::post   ('/orders/{order}/items',                [OrderController::class, 'addItem'])->whereNumber('order');
-    Route::delete ('/orders/{order}/items/{orderItem}',    [OrderController::class, 'removeItem'])
+    // ---- Orders (you said these were required)
+    Route::get('/orders', [OrderController::class, 'index']);
+    Route::post('/orders', [OrderController::class, 'store']);
+    Route::get('/orders/{order}', [OrderController::class, 'show'])->whereNumber('order');
+    Route::post('/orders/{order}/items', [OrderController::class, 'addItem'])->whereNumber('order');
+    Route::delete('/orders/{order}/items/{orderItem}', [OrderController::class, 'removeItem'])
         ->whereNumber('order')->whereNumber('orderItem');
+    Route::patch('/orders/{order}/status', [OrderController::class, 'updateStatus'])->whereNumber('order');
+    Route::patch('/orders/{order}', [OrderController::class, 'updateStatus'])->whereNumber('order');
 
-    // Main status endpoint
-    Route::patch  ('/orders/{order}/status',               [OrderController::class, 'updateStatus'])->whereNumber('order');
-
-    // ✅ Alias so clients that call PATCH /orders/{id} still work
-    Route::patch  ('/orders/{order}',                      [OrderController::class, 'updateStatus'])->whereNumber('order');
+    /*
+    |----------------------------------------------------------------------
+    | Admin area (admin.only alias; no Kernel.php needed)
+    |----------------------------------------------------------------------
+    */
+    Route::prefix('admin')->middleware('admin.only')->group(function () {
+        Route::get('/pending-users', [AdminController::class, 'pendingUsers']);
+        Route::post('/approve-user/{id}', [AdminController::class, 'approveUser'])->whereNumber('id');
+        Route::get('/menu-items', [AdminController::class, 'adminMenuItems']);
+        Route::get('/orders', [AdminController::class, 'adminOrders']);
+    });
 });
