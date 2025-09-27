@@ -1,18 +1,21 @@
 import axios from "axios";
 
-/** Decide baseURL:
- * - In production (Render), use VITE_API_URL (https://snackbox-backend.onrender.com)
- * - In local dev, keep "" so Vite proxy handles /api + Sanctum.
+/** Base URL rules
+ * - On localhost: use VITE_API_URL only if VITE_FORCE_REMOTE=true
+ * - In production (Render): always use VITE_API_URL
  */
 const isLocal =
   typeof window !== "undefined" &&
   /localhost|127\.0\.0\.1/.test(window.location.hostname);
 
-const BASE_URL = import.meta.env.VITE_API_URL && !isLocal
-  ? import.meta.env.VITE_API_URL
-  : ""; // dev proxy / same-origin
+const FORCE_REMOTE = (import.meta.env.VITE_FORCE_REMOTE ?? "false") === "true";
 
-const WITH_CREDENTIALS = (import.meta.env.VITE_WITH_CREDENTIALS ?? "true") === "true";
+const BASE_URL = isLocal
+  ? (FORCE_REMOTE ? import.meta.env.VITE_API_URL : "")
+  : (import.meta.env.VITE_API_URL || "");
+
+const WITH_CREDENTIALS =
+  (import.meta.env.VITE_WITH_CREDENTIALS ?? "true") === "true";
 
 const apiClient = axios.create({
   baseURL: BASE_URL,
@@ -31,7 +34,7 @@ export async function ensureCsrf() {
   try { await csrfPromise; } finally { csrfPromise = null; }
 }
 
-// Auto-retry once on 419 (expired/missing CSRF)
+// Retry once on 419 (expired/missing CSRF)
 apiClient.interceptors.response.use(
   (res) => res,
   async (error) => {
@@ -46,7 +49,7 @@ apiClient.interceptors.response.use(
   }
 );
 
-/* ---------- convenience wrappers that auto-CSRF for mutating ---------- */
+/* ---------- helpers that auto-CSRF on mutating ---------- */
 export async function post(url, data, cfg)  { await ensureCsrf(); return apiClient.post(url, data, cfg); }
 export async function put (url, data, cfg)  { await ensureCsrf(); return apiClient.put (url, data, cfg); }
 export async function patch(url, data, cfg) { await ensureCsrf(); return apiClient.patch(url, data, cfg); }
@@ -58,21 +61,18 @@ export async function getMe() {
     const { data } = await apiClient.get("/api/auth/me");
     return data?.user ?? data?.data ?? data ?? null;
   } catch (e) {
-    if (e?.response?.status === 401) return null; // not logged in yet — treat as guest
+    if (e?.response?.status === 401) return null; // guest
     throw e;
   }
 }
-
 export async function login(email, password, remember = false) {
   const { data } = await post("/api/auth/login", { email, password, remember });
   return data;
 }
-
 export async function register(payload) {
   const { data } = await post("/api/auth/register", payload);
   return data;
 }
-
 export async function logout() {
   await post("/api/auth/logout");
 }
@@ -80,14 +80,12 @@ export async function logout() {
 /* ================== Admin ================== */
 export async function adminLogin(email, password) {
   const { data } = await post("/api/admin/login", { email, password });
-  return data; // cookie session → no token needed
+  return data;
 }
-
 export async function getPendingUsers() {
   const { data } = await apiClient.get("/api/admin/pending-users");
   return Array.isArray(data) ? data : (data?.data ?? []);
 }
-
 export async function approveUser(userId) {
   const { data } = await post(`/api/admin/approve-user/${userId}`);
   return data;
@@ -99,7 +97,6 @@ export async function listMenuItems(params = {}) {
   const items = Array.isArray(data) ? data : (data?.data ?? []);
   return { items, meta: data?.meta ?? null, links: data?.links ?? null };
 }
-
 export async function getMenuItem(id) {
   const { data } = await apiClient.get(`/api/menu-items/${id}`);
   return data?.data ?? data;
@@ -112,12 +109,10 @@ export async function listOrders(params = {}) {
   const items = Array.isArray(data) ? data : (data?.data ?? []);
   return { items, meta: data?.meta ?? null, links: data?.links ?? null };
 }
-
 export async function getOrder(id) {
   const { data } = await apiClient.get(`/api/orders/${id}`);
   return data?.data ?? data;
 }
-
 export async function cancelOrder(id, reason) {
   const payload = { status: "cancelled" };
   if (reason && String(reason).trim()) payload.reason = String(reason).trim();
@@ -126,7 +121,6 @@ export async function cancelOrder(id, reason) {
     { method: "patch", url: `/api/orders/${id}/status`, data: payload },
     { method: "patch", url: `/api/orders/${id}`,        data: payload },
   ];
-
   let lastErr = null;
   for (const a of attempts) {
     try { const { data } = await apiClient.request(a); return data; }
@@ -138,7 +132,6 @@ export async function cancelOrder(id, reason) {
   }
   throw lastErr || new Error("No cancellation endpoint available on the API.");
 }
-
 export async function updateOrderStatus(id, status, extra = {}) {
   const payload = { status, ...extra };
   const { data } = await patch(`/api/orders/${id}/status`, payload);
