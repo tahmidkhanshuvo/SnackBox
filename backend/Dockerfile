@@ -35,8 +35,10 @@ ENV PORT=10000 \
     APP_ENV=production \
     APP_DEBUG=false \
     PHP_OPCACHE_VALIDATE_TIMESTAMPS=0 \
-    RESET_DB=1 \        # set to 1 to DROP & RECREATE schema, then seed
-    SEED=1              # set to 1 to run db:seed after a normal migrate
+    RESET_DB=1 \
+    SEED=1
+# RESET_DB=1 → DROP & RECREATE schema, then seed
+# SEED=1 → run db:seed after normal migrate (unused if RESET_DB=1)
 
 EXPOSE 10000
 USER laravel
