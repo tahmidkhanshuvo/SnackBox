@@ -31,7 +31,6 @@ class AuthController extends Controller
             'account_type' => ['required', 'string', Rule::in(['customer', 'staff'])],
         ]);
 
-        // role: customer -> 'customer', staff -> 'pending'
         $role = $data['account_type'] === 'staff' ? 'pending' : 'customer';
 
         $user = User::create([
@@ -44,21 +43,20 @@ class AuthController extends Controller
         if ($data['account_type'] === 'staff') {
             $nameParts = explode(' ', $data['name'], 2);
             Staff::create([
-                'user_id'   => $user->id,
-                'first_name'=> $nameParts[0],
-                'last_name' => $nameParts[1] ?? '',
-                'email'     => $user->email,
-                'is_active' => false, // require approval
+                'user_id'    => $user->id,
+                'first_name' => $nameParts[0],
+                'last_name'  => $nameParts[1] ?? '',
+                'email'      => $user->email,
+                'is_active'  => false,
             ]);
 
-            // DO NOT LOG IN staff yet
             return response()->json([
                 'message' => 'Registration submitted. An admin must approve your account before you can sign in.',
             ], 202);
         }
 
-        // Customers: login immediately
-        Auth::login($user, remember: false);
+        // Customer: login immediately (web guard) + regenerate
+        Auth::guard('web')->login($user, remember: false);
         $request->session()->regenerate();
 
         $user = $this->augmentUser($user);
@@ -78,17 +76,16 @@ class AuthController extends Controller
 
         $remember = (bool) $request->boolean('remember');
 
-        if (!Auth::attempt($credentials, $remember)) {
+        if (!Auth::guard('web')->attempt($credentials, $remember)) {
             throw ValidationException::withMessages([
                 'email' => ['The provided credentials are incorrect.'],
             ]);
         }
 
-        $user = Auth::user();
+        $user = Auth::guard('web')->user();
 
-        // Block pending staff
         if (strtolower($user->role ?? '') === 'pending') {
-            Auth::logout();
+            Auth::guard('web')->logout();
             $request->session()->invalidate();
             $request->session()->regenerateToken();
             throw ValidationException::withMessages([
@@ -116,7 +113,6 @@ class AuthController extends Controller
         $adminEmail    = env('ADMIN_EMAIL', 'admin@yourdomain.com');
         $adminPassword = env('ADMIN_PASSWORD', 'secureAdminPassword123');
 
-        // Ensure admin user exists with hashed password
         $user = User::firstOrCreate(
             ['email' => $adminEmail],
             [
@@ -127,18 +123,14 @@ class AuthController extends Controller
         );
 
         if ($credentials['email'] === $adminEmail && Hash::check($credentials['password'], $user->password)) {
-            Auth::login($user, remember: false);
+            Auth::guard('web')->login($user, remember: false);
             $request->session()->regenerate();
-
-            // If you prefer cookie-only auth, no need to return a token.
-            // $token = $user->createToken('admin-token')->plainTextToken;
 
             $user = $this->augmentUser($user);
 
             return response()->json([
                 'message' => 'Admin logged in',
                 'user'    => $user,
-                // 'token' => $token, // optional
             ]);
         }
 
@@ -149,7 +141,7 @@ class AuthController extends Controller
 
     public function me(Request $request)
     {
-        $user = $request->user();
+        $user = $request->user(); // sanctum session → web guard
         if (!$user) {
             return response()->json(['message' => 'Unauthenticated'], 401);
         }
@@ -172,13 +164,13 @@ class AuthController extends Controller
             'password' => ['required', 'string'],
         ]);
 
-        if (!Auth::attempt($data, remember: false)) {
+        if (!Auth::guard('web')->attempt($data, remember: false)) {
             throw ValidationException::withMessages([
                 'email' => ['Invalid credentials.'],
             ]);
         }
 
-        $user  = Auth::user();
+        $user  = Auth::guard('web')->user();
         $user  = $this->augmentUser($user);
         $token = $user->createToken('api')->plainTextToken;
 
