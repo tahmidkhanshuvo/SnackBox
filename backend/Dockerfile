@@ -36,7 +36,7 @@ ENV PORT=10000 \
     APP_DEBUG=false \
     PHP_OPCACHE_VALIDATE_TIMESTAMPS=0 \
     RESET_DB=1 \
-    SEED=1
+    SEED=0
 # RESET_DB=1 → DROP & RECREATE schema, then seed
 # SEED=1 → run db:seed after normal migrate (unused if RESET_DB=1)
 
