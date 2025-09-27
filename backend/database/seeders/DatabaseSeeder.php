@@ -167,38 +167,36 @@ class DatabaseSeeder extends Seeder
 
             // --- ORDER ITEMS ---
             $orderItems = [
-                ['ref' => 'ORD-001', 'item' => 'Margherita Pizza', 'qty' => 2, 'unit' => 7.75, 'line' => 15.50, 'note' => 'Extra spicy', 'addons' => ['Extra Cheese' => 1.00], 'sel' => ['Size' => 'Large']],
-                ['ref' => 'ORD-002', 'item' => 'Pepperoni Pizza',  'qty' => 1, 'unit' => 22.00, 'line' => 22.00, 'note' => 'No onions',   'addons' => ['Extra Sauce'  => 0.50], 'sel' => ['Size' => 'Medium']],
-                ['ref' => 'ORD-003', 'item' => 'Caesar Salad',     'qty' => 1, 'unit' => 10.00, 'line' => 10.00, 'note' => null,         'addons' => null,                      'sel' => null],
-                ['ref' => 'ORD-004', 'item' => 'Chicken Wings',    'qty' => 3, 'unit' => 6.25,  'line' => 18.75, 'note' => 'Well-done',  'addons' => ['Extra Topping' => 1.50], 'sel' => ['Size' => 'Small']],
-                ['ref' => 'ORD-005', 'item' => 'Tiramisu',         'qty' => 1, 'unit' => 30.00, 'line' => 30.00, 'note' => 'No substitutions', 'addons' => null,                'sel' => null],
+                ['ref' => 'ORD-001', 'item' => 'Margherita Pizza', 'qty' => 2, 'unit' => 7.75, 'line' => 15.50, 'note' => 'Extra spicy',      'addons' => ['Extra Cheese' => 1.00], 'sel' => ['Size' => 'Large']],
+                ['ref' => 'ORD-002', 'item' => 'Pepperoni Pizza',  'qty' => 1, 'unit' => 22.00,'line' => 22.00, 'note' => 'No onions',        'addons' => ['Extra Sauce'  => 0.50], 'sel' => ['Size' => 'Medium']],
+                ['ref' => 'ORD-003', 'item' => 'Caesar Salad',     'qty' => 1, 'unit' => 10.00,'line' => 10.00, 'note' => null,               'addons' => null,                      'sel' => null],
+                ['ref' => 'ORD-004', 'item' => 'Chicken Wings',    'qty' => 3, 'unit' => 6.25, 'line' => 18.75, 'note' => 'Well-done',        'addons' => ['Extra Topping' => 1.50], 'sel' => ['Size' => 'Small']],
+                ['ref' => 'ORD-005', 'item' => 'Tiramisu',         'qty' => 1, 'unit' => 30.00,'line' => 30.00, 'note' => 'No substitutions', 'addons' => null,                      'sel' => null],
             ];
+
             foreach ($orderItems as $oi) {
                 $orderId = $orderIds[$oi['ref']] ?? null;
                 $menuId  = $menuIds[$oi['item']] ?? null;
                 if (!$orderId || !$menuId) continue;
 
-                // Avoid duplicates by matching order_id + menu_item_id + note
-                $exists = DB::table('order_items')
-                    ->where(compact('orderId', 'menuId'))
-                    ->where('note', $oi['note'])
-                    ->first();
-
-                if (!$exists) {
-                    DB::table('order_items')->insert([
+                DB::table('order_items')->updateOrInsert(
+                    [
                         'order_id'     => $orderId,
                         'menu_item_id' => $menuId,
+                        'note'         => $oi['note'],
+                    ],
+                    [
                         'quantity'     => $oi['qty'],
                         'unit_price'   => $oi['unit'],
                         'line_total'   => $oi['line'],
-                        'note'         => $oi['note'],
                         'addons'       => $oi['addons'] ? json_encode($oi['addons']) : null,
                         'selections'   => $oi['sel'] ? json_encode($oi['sel']) : null,
                         'created_at'   => now()->subHours(2),
                         'updated_at'   => now()->subHours(1),
-                    ]);
-                }
+                    ]
+                );
             }
+
 
             // --- INVENTORY MOVEMENTS ---
             $inv = [
