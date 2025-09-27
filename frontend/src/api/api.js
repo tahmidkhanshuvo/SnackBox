@@ -1,13 +1,22 @@
-// src/api/api.js
 import axios from "axios";
 
-/**
- * We keep baseURL empty so requests are relative to the frontend origin.
- * This matches your working setup (Vite proxy → Laravel) and fixes CSRF.
+/** Decide baseURL:
+ * - In production (Render), use VITE_API_URL (https://snackbox-backend.onrender.com)
+ * - In local dev, keep "" so Vite proxy handles /api + Sanctum.
  */
+const isLocal =
+  typeof window !== "undefined" &&
+  /localhost|127\.0\.0\.1/.test(window.location.hostname);
+
+const BASE_URL = import.meta.env.VITE_API_URL && !isLocal
+  ? import.meta.env.VITE_API_URL
+  : ""; // dev proxy / same-origin
+
+const WITH_CREDENTIALS = (import.meta.env.VITE_WITH_CREDENTIALS ?? "true") === "true";
+
 const apiClient = axios.create({
-  baseURL: "",                  // IMPORTANT: keep empty to use the dev proxy
-  withCredentials: true,        // send/receive Sanctum cookies
+  baseURL: BASE_URL,
+  withCredentials: WITH_CREDENTIALS,
   headers: {
     "X-Requested-With": "XMLHttpRequest",
     Accept: "application/json",
@@ -55,7 +64,6 @@ export async function login(email, password, remember = false) {
 }
 
 export async function register(payload) {
-  // payload: { name, email, password, password_confirmation, account_type: 'customer'|'staff' }
   const { data } = await post("/api/auth/register", payload);
   return data;
 }
@@ -66,7 +74,6 @@ export async function logout() {
 
 /* ================== Admin ================== */
 export async function adminLogin(email, password) {
-  // IMPORTANT: the admin endpoint lives under /api/admin/login
   const { data } = await post("/api/admin/login", { email, password });
   return data; // cookie session → no token needed
 }
@@ -111,8 +118,8 @@ export async function cancelOrder(id, reason) {
   if (reason && String(reason).trim()) payload.reason = String(reason).trim();
 
   const attempts = [
-    { method: "patch", url: `/api/orders/${id}/status`, data: payload }, // primary
-    { method: "patch", url: `/api/orders/${id}`,        data: payload }, // alias
+    { method: "patch", url: `/api/orders/${id}/status`, data: payload },
+    { method: "patch", url: `/api/orders/${id}`,        data: payload },
   ];
 
   let lastErr = null;
