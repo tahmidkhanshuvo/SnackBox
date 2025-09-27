@@ -54,8 +54,13 @@ export async function del(url, cfg)         { await ensureCsrf(); return apiClie
 
 /* ================== Auth (Sanctum cookie) ================== */
 export async function getMe() {
-  const { data } = await apiClient.get("/api/auth/me");
-  return data?.user ?? data?.data ?? data ?? null;
+  try {
+    const { data } = await apiClient.get("/api/auth/me");
+    return data?.user ?? data?.data ?? data ?? null;
+  } catch (e) {
+    if (e?.response?.status === 401) return null; // not logged in yet — treat as guest
+    throw e;
+  }
 }
 
 export async function login(email, password, remember = false) {

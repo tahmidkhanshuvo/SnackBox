@@ -1,24 +1,16 @@
 // src/pages/admin/AdminLogin.jsx
 import React, { useEffect, useState } from "react";
-import { useNavigate, Link } from "react-router-dom";
+import { Link } from "react-router-dom";
 import { adminLogin, getMe } from "../../api/api";
 
 /* ----------------------- ACETERNITY-THEMED STYLES ----------------------- */
 const AdminStyles = () => (
   <style>{`
     :root{
-      --bg:#0b1220;                 /* deep slate */
-      --fg:#e5e7eb;                 /* light text */
-      --muted:#9aa0a6;
-      --card:rgba(255,255,255,0.06);/* glass */
-      --card-b:#1f2937;             /* input bg */
-      --card-br:rgba(255,255,255,0.12);
-      --ring:0 0 0 4px rgba(34,211,238,0.18);
-      --c1:#22d3ee;                 /* cyan */
-      --c2:#6366f1;                 /* indigo */
-      --shadow:0 16px 40px rgba(0,0,0,.35);
+      --bg:#0b1220; --fg:#e5e7eb; --muted:#9aa0a6; --card:rgba(255,255,255,0.06);
+      --card-b:#1f2937; --card-br:rgba(255,255,255,0.12); --ring:0 0 0 4px rgba(34,211,238,0.18);
+      --c1:#22d3ee; --c2:#6366f1; --shadow:0 16px 40px rgba(0,0,0,.35);
     }
-
     *{box-sizing:border-box}
     html,body{height:100%;margin:0;overflow:hidden}
     body{
@@ -34,7 +26,6 @@ const AdminStyles = () => (
     .form-panel{width:44%;min-width:360px;display:flex;align-items:center;justify-content:center;padding:32px;overflow:auto}
     .slider-panel{width:56%;position:relative;overflow:hidden}
 
-    /* Gradient ring that's safe (no overlay/mask glitches) */
     .ring{padding:1px;border-radius:20px;background:conic-gradient(from 0deg,var(--c1),var(--c2),var(--c1));}
     .card{border-radius:18px;background:var(--card);border:1px solid var(--card-br);backdrop-filter:blur(10px);box-shadow:var(--shadow)}
 
@@ -69,7 +60,6 @@ const AdminStyles = () => (
 
     .error{color:#fecaca;background:rgba(239,68,68,.12);border:1px solid rgba(239,68,68,.35);border-radius:12px;padding:10px 14px;font-size:14px}
 
-    /* Slider */
     .hero{height:100%;display:flex;flex-direction:column;justify-content:center;gap:1rem}
     .heroHead{max-width:42rem;margin:0 auto;text-align:center;position:relative;z-index:1;
       padding:16px 20px;background:rgba(2,6,23,.55);border:1px solid rgba(255,255,255,.08);border-radius:16px;backdrop-filter:blur(8px)}
@@ -136,30 +126,35 @@ function HeroParallax() {
 
 /* ----------------------- FORM ----------------------- */
 function AdminLoginForm({ onLoginSuccess }) {
-  const navigate = useNavigate();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [remember, setRemember] = useState(false);
+  const [remember, setRemember] = useState(false); // kept for future; not required by backend
   const [showPw, setShowPw] = useState(false);
   const [msg, setMsg] = useState("");
   const [loading, setLoading] = useState(false);
 
   const submit = async (e) => {
     e.preventDefault();
+    if (loading) return;
     setMsg("");
     setLoading(true);
     try {
-      await adminLogin(email, password);           // Sanctum cookie
-      const meResp = await getMe();                // could be {user:...} or plain
-      const me = meResp?.user ?? meResp;
-      if (!me) throw new Error("Could not verify session after login.");
-      const r = String(me.role || "").toLowerCase();
-      if (!["admin", "superadmin"].includes(r)) throw new Error("Only admins can access the admin panel.");
-      onLoginSuccess?.(me);
-      navigate("/admin/dashboard");
+      await adminLogin(email, password); // CSRF handled in api helper
+      const meResp = await getMe();
+      const user = meResp?.user ?? meResp ?? null;
+      if (!user) throw new Error("Could not verify session after login.");
+      const role = String(user.role || "").toLowerCase();
+      if (!["admin", "superadmin"].includes(role)) {
+        throw new Error("Only admins can access the admin panel.");
+      }
+      // Let App.jsx decide the final route + toast
+      onLoginSuccess?.(user);
     } catch (err) {
-      const server = err?.response?.data?.message;
-      setMsg(server || err.message || "Login failed. Please try again.");
+      const serverMsg =
+        err?.response?.data?.message ||
+        (err?.response?.data?.errors && Object.values(err.response.data.errors).flat().join(" ")) ||
+        err.message;
+      setMsg(serverMsg || "Login failed. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -177,9 +172,7 @@ function AdminLoginForm({ onLoginSuccess }) {
               Admin Area
             </span>
             <h1 className="title">Sign in</h1>
-            <p className="sub">
-              Use credentials stored in the backend <code>.env</code>.
-            </p>
+            <p className="sub">Use credentials stored in the backend <code>.env</code>.</p>
           </div>
 
           {msg && <div className="error" role="alert">{msg}</div>}
@@ -195,7 +188,7 @@ function AdminLoginForm({ onLoginSuccess }) {
               <input
                 id="email" className="input" type="email" required
                 autoComplete="username" placeholder="admin@example.com"
-                value={email} onChange={(e)=>setEmail(e.target.value)}
+                value={email} onChange={(e)=>{ setEmail(e.target.value); if (msg) setMsg(""); }}
               />
             </div>
           </div>
@@ -213,7 +206,7 @@ function AdminLoginForm({ onLoginSuccess }) {
                 type={showPw ? "text" : "password"}
                 placeholder="••••••••"
                 autoComplete="current-password"
-                value={password} onChange={(e)=>setPassword(e.target.value)}
+                value={password} onChange={(e)=>{ setPassword(e.target.value); if (msg) setMsg(""); }}
               />
               <button type="button" className="eye" onClick={()=>setShowPw(s=>!s)} aria-label={showPw ? "Hide password" : "Show password"}>
                 {showPw ? (

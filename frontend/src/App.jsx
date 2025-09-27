@@ -184,7 +184,6 @@ export default function App() {
   const goto = (path) => {
     navigate(path);
     setRoute(path);
-    // no manual popstate dispatch here; we listen below
     scrollTop();
   };
 
@@ -195,31 +194,38 @@ export default function App() {
     return () => window.removeEventListener("popstate", sync);
   }, []);
 
-  // Boot: fetch session and route accordingly
+  // Boot: fetch session and route accordingly (treat null as guest)
   useEffect(() => {
     (async () => {
       try {
-        const meRaw = await getMe();
+        const meRaw = await getMe();           // returns null (not throw) when 401
         const me = normalizeUser(meRaw);
-        console.log("Boot user data (normalized):", me);
         setUser(me);
+
         const p = getPath();
+
+        if (!me) {
+          // unauthenticated — send to the right login screen
+          if (p.startsWith("/admin")) goto("/admin/login");
+          else goto("/login");
+          return;
+        }
+
         const role = String(me?.role || "").toLowerCase();
         const isStaff = !!me?.staff;
 
         if (isStaff) {
           goto(p.startsWith("/staff") ? p : "/staff/dashboard");
         } else if (role === "admin") {
-          if (p === "/admin/login") goto("/admin/dashboard");
-          else goto(p.startsWith("/admin") ? p : "/admin/dashboard");
+          goto(p === "/admin/login" ? "/admin/dashboard" : (p.startsWith("/admin") ? p : "/admin/dashboard"));
         } else {
           goto(isOkCustomerPath(p) ? p : "/");
         }
       } catch (err) {
+        // Only true network/JS errors should land here
         console.error("Boot error:", err);
         const p = getPath();
-        // default to customer/staff login unless explicitly on admin pages
-        if (p === "/admin/login" || p.startsWith("/admin")) goto("/admin/login");
+        if (p.startsWith("/admin")) goto("/admin/login");
         else goto("/login");
       } finally {
         setBooting(false);

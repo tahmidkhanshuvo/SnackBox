@@ -2,13 +2,9 @@
 import React, { useMemo, useRef, useState, useLayoutEffect } from "react";
 import Topbar from "./UI/Topbar.jsx";
 import GlobalFooter from "./UI/GlobalFooter.jsx";
-import { useAuth } from "../context/AuthContext.jsx";
 
 export default function Layout({ children, user: userProp, onLogout }) {
-  // prefer context user if available
-  let ctxUser = null;
-  try { ctxUser = typeof useAuth === "function" ? useAuth()?.user : null; } catch {}
-  const user = userProp ?? ctxUser ?? null;
+  const user = userProp ?? null;
   const isAuthed = !!user;
 
   // ---- Role precedence: admin > staff > customer/guest ----
@@ -126,14 +122,7 @@ export default function Layout({ children, user: userProp, onLogout }) {
   const onBrandClick = () => go(role === "staff" ? "/staff" : role === "admin" ? "/admin" : "/");
 
   return (
-    <div
-      style={{
-        minHeight: "100vh",
-        display: "flex",
-        flexDirection: "column",
-        paddingTop: topPad,
-      }}
-    >
+    <div style={{ minHeight: "100vh", display: "flex", flexDirection: "column", paddingTop: topPad }}>
       {isAuthed && (
         <div style={roleThemeVars}>
           <Topbar
@@ -147,9 +136,7 @@ export default function Layout({ children, user: userProp, onLogout }) {
         </div>
       )}
 
-      <main style={{ flex: "1 0 auto", paddingBottom: "clamp(28px, 4vw, 72px)" }}>
-        {children}
-      </main>
+      <main style={{ flex: "1 0 auto", paddingBottom: "clamp(28px, 4vw, 72px)" }}>{children}</main>
 
       <div style={{ marginTop: "clamp(20px, 3vw, 40px)" }}>
         <GlobalFooter position="static" theme={themeName} />
