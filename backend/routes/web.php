@@ -7,12 +7,28 @@ use App\Http\Controllers\AuthController;
 |--------------------------------------------------------------------------
 | Web Routes (session + CSRF)
 |--------------------------------------------------------------------------
-| These run through the "web" middleware and are allowed to set/read
-| the session cookie. Our SPA calls these from http://localhost:5173.
+| These run through the "web" middleware.
 */
 
 Route::view('/', 'welcome');
 
-// Admin cookie-based login/logout (Sanctum SPA)
+// Health check that never touches the DB
+Route::get('/healthz', function () {
+    return response('OK', 200)->header('Content-Type', 'text/plain');
+});
+
+// TEMP: check the resolved DB config at runtime (remove after debugging)
+Route::get('/env-check', function () {
+    $conn = config('database.default');
+    $cfg  = config("database.connections.$conn") ?? [];
+    return response()->json([
+        'connection' => $conn,
+        'host'       => $cfg['host'] ?? null,
+        'port'       => $cfg['port'] ?? null,
+        'database'   => $cfg['database'] ?? null,
+        'username'   => $cfg['username'] ?? null,
+    ]);
+});
+
 Route::post('/admin/login', [AuthController::class, 'adminLogin'])->name('admin.login');
 Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
