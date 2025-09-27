@@ -4,463 +4,314 @@ namespace Database\Seeders;
 
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Carbon;
 
 class DatabaseSeeder extends Seeder
 {
     public function run(): void
     {
-        // Check if staff record with id = 1 exists, insert only if not
-        if (!DB::table('staff')->where('id', 1)->exists()) {
-            DB::table('staff')->insert([
-                [
-                    'id' => 1,
-                    'user_id' => 2,
-                    'shift_id' => null,
-                    'first_name' => 'Staff',
-                    'last_name' => 'Member',
-                    'email' => 'staff@example.com',
-                    'phone' => '987-654-3210',
-                    'position' => 'Staff',
-                    'hired_at' => '2023-01-01',
-                    'is_active' => true,
-                    'created_at' => now(),
-                    'updated_at' => now(),
-                ],
-            ]);
-        }
+        DB::transaction(function () {
 
-        // Seed Shifts (3 records), only if they don't exist
-        $shifts = [
-            ['Morning', '08:00:00', '16:00:00'],
-            ['Evening', '16:00:00', '00:00:00'],
-            ['Night', '00:00:00', '08:00:00'],
-        ];
-        foreach ($shifts as $shift) {
-            if (!DB::table('shifts')->where('name', $shift[0])->exists()) {
-                DB::table('shifts')->insert([
-                    'name' => $shift[0],
-                    'starts_at' => $shift[1],
-                    'ends_at' => $shift[2],
-                    'is_active' => true,
-                    'status' => 'active',
-                    'created_at' => now(),
+            // --- USERS (parents first) ---
+            $customerEmail = 'customer@example.com';
+            $staffEmail    = 'staff@example.com';
+
+            // Customer user
+            $customer = DB::table('users')->where('email', $customerEmail)->first();
+            if (!$customer) {
+                $customerId = DB::table('users')->insertGetId([
+                    'name'       => 'Customer One',
+                    'email'      => $customerEmail,
+                    'password'   => Hash::make('password'),
+                    'created_at' => now(), 'updated_at' => now(),
+                ]);
+            } else {
+                $customerId = $customer->id;
+                DB::table('users')->where('id', $customerId)->update(['updated_at' => now()]);
+            }
+
+            // Staff-linked user
+            $staffUser = DB::table('users')->where('email', $staffEmail)->first();
+            if (!$staffUser) {
+                $staffUserId = DB::table('users')->insertGetId([
+                    'name'       => 'Staff Member',
+                    'email'      => $staffEmail,
+                    'password'   => Hash::make('password'),
+                    'created_at' => now(), 'updated_at' => now(),
+                ]);
+            } else {
+                $staffUserId = $staffUser->id;
+                DB::table('users')->where('id', $staffUserId)->update(['updated_at' => now()]);
+            }
+
+            // --- SHIFTS ---
+            $shiftsData = [
+                ['name' => 'Morning', 'starts_at' => '08:00:00', 'ends_at' => '16:00:00', 'status' => 'active'],
+                ['name' => 'Evening', 'starts_at' => '16:00:00', 'ends_at' => '00:00:00', 'status' => 'active'],
+                ['name' => 'Night',   'starts_at' => '00:00:00', 'ends_at' => '08:00:00', 'status' => 'active'],
+            ];
+            $shiftIds = [];
+            foreach ($shiftsData as $s) {
+                $row = DB::table('shifts')->where('name', $s['name'])->first();
+                if (!$row) {
+                    $id = DB::table('shifts')->insertGetId([
+                        'name'       => $s['name'],
+                        'starts_at'  => $s['starts_at'],
+                        'ends_at'    => $s['ends_at'],
+                        'is_active'  => true,
+                        'status'     => $s['status'],
+                        'created_at' => now(), 'updated_at' => now(),
+                    ]);
+                } else {
+                    $id = $row->id;
+                    DB::table('shifts')->where('id', $id)->update([
+                        'starts_at'  => $s['starts_at'],
+                        'ends_at'    => $s['ends_at'],
+                        'is_active'  => true,
+                        'status'     => $s['status'],
+                        'updated_at' => now(),
+                    ]);
+                }
+                $shiftIds[$s['name']] = $id;
+            }
+
+            // --- STAFF (link to staff user + a real shift id) ---
+            $staff = DB::table('staff')->where('email', $staffEmail)->first();
+            if (!$staff) {
+                $staffId = DB::table('staff')->insertGetId([
+                    'user_id'    => $staffUserId,
+                    'shift_id'   => $shiftIds['Morning'] ?? null,
+                    'first_name' => 'Staff',
+                    'last_name'  => 'Member',
+                    'email'      => $staffEmail,
+                    'phone'      => '987-654-3210',
+                    'position'   => 'Staff',
+                    'hired_at'   => '2023-01-01',
+                    'is_active'  => true,
+                    'created_at' => now(), 'updated_at' => now(),
+                ]);
+            } else {
+                $staffId = $staff->id;
+                DB::table('staff')->where('id', $staffId)->update([
+                    'user_id'    => $staffUserId,
+                    'shift_id'   => $shiftIds['Morning'] ?? null,
+                    'position'   => 'Staff',
+                    'is_active'  => true,
                     'updated_at' => now(),
                 ]);
             }
-        }
 
-            // Seed Menu Items (5 records) with image links
-        DB::table('menu_items')->insert([
-            [
-                'item_name' => 'Margherita Pizza',
-                'category' => 'Pizza',
-                'price' => 7.75,
-                'availability' => true,
-                'image_path' => 'https://t3.ftcdn.net/jpg/02/91/35/16/360_F_291351654_FFAS60r2iHUkOY69RPRwEOVS76EU4SdA.jpg',
-                'image_alt' => 'A delicious Margherita Pizza with fresh tomatoes and basil',
-                'created_at' => now(),
-                'updated_at' => now(),
-            ],
-            [
-                'item_name' => 'Pepperoni Pizza',
-                'category' => 'Pizza',
-                'price' => 22.00,
-                'availability' => true,
-                'image_path' => '/storage/images/pepperoni.jpg', // Placeholder
-                'image_alt' => 'A spicy Pepperoni Pizza with melted cheese',
-                'created_at' => now(),
-                'updated_at' => now(),
-            ],
-            [
-                'item_name' => 'Caesar Salad',
-                'category' => 'Salad',
-                'price' => 10.00,
-                'availability' => true,
-                'image_path' => '/storage/images/caesar.jpg', // Placeholder
-                'image_alt' => 'A fresh Caesar Salad with croutons and dressing',
-                'created_at' => now(),
-                'updated_at' => now(),
-            ],
-            [
-                'item_name' => 'Chicken Wings',
-                'category' => 'Appetizer',
-                'price' => 6.25,
-                'availability' => true,
-                'image_path' => '/storage/images/chicken_wings.jpg',
-                'image_alt' => 'Crispy Chicken Wings with sauce',
-                'created_at' => now(),
-                'updated_at' => now(),
-            ],
-            [
-                'item_name' => 'Tiramisu',
-                'category' => 'Dessert',
-                'price' => 30.00,
-                'availability' => true,
-                'image_path' => '/storage/images/tiramisu.jpg', // Placeholder
-                'image_alt' => 'A creamy Tiramisu dessert with coffee flavor',
-                'created_at' => now(),
-                'updated_at' => now(),
-            ],
-        ]);
+            // --- MENU ITEMS ---
+            $menuSeed = [
+                ['item_name' => 'Margherita Pizza', 'category' => 'Pizza',     'price' => 7.75, 'image_path' => 'https://t3.ftcdn.net/jpg/02/91/35/16/360_F_291351654_FFAS60r2iHUkOY69RPRwEOVS76EU4SdA.jpg', 'image_alt' => 'A delicious Margherita Pizza with fresh tomatoes and basil'],
+                ['item_name' => 'Pepperoni Pizza',  'category' => 'Pizza',     'price' => 22.0, 'image_path' => '/storage/images/pepperoni.jpg', 'image_alt' => 'A spicy Pepperoni Pizza with melted cheese'],
+                ['item_name' => 'Caesar Salad',     'category' => 'Salad',     'price' => 10.0, 'image_path' => '/storage/images/caesar.jpg',    'image_alt' => 'A fresh Caesar Salad with croutons and dressing'],
+                ['item_name' => 'Chicken Wings',    'category' => 'Appetizer', 'price' => 6.25, 'image_path' => '/storage/images/chicken_wings.jpg', 'image_alt' => 'Crispy Chicken Wings with sauce'],
+                ['item_name' => 'Tiramisu',         'category' => 'Dessert',   'price' => 30.0, 'image_path' => '/storage/images/tiramisu.jpg',  'image_alt' => 'A creamy Tiramisu dessert with coffee flavor'],
+            ];
+            $menuIds = [];
+            foreach ($menuSeed as $m) {
+                $row = DB::table('menu_items')->where('item_name', $m['item_name'])->first();
+                $payload = [
+                    'category'    => $m['category'],
+                    'price'       => $m['price'],
+                    'availability'=> true,
+                    'image_path'  => $m['image_path'],
+                    'image_alt'   => $m['image_alt'],
+                    'updated_at'  => now(),
+                ];
+                if (!$row) {
+                    $id = DB::table('menu_items')->insertGetId($payload + ['item_name' => $m['item_name'], 'created_at' => now()]);
+                } else {
+                    $id = $row->id;
+                    DB::table('menu_items')->where('id', $id)->update($payload);
+                }
+                $menuIds[$m['item_name']] = $id;
+            }
 
-        // Seed Complaints (5 records, User ID 1 as customer, Staff ID 1 as handler)
-        DB::table('complaints')->insert([
-            [
-                'user_id' => 1,
-                'subject' => 'Delayed Delivery',
-                'message' => 'My order was delayed by 2 hours.',
-                'status' => 'Pending',
-                'response' => null,
-                'handled_by' => 1,
-                'resolved_at' => null,
-                'created_at' => Carbon::now()->subDays(2),
-                'updated_at' => Carbon::now()->subDays(2),
-            ],
-            [
-                'user_id' => 1,
-                'subject' => 'Rude Staff',
-                'message' => 'The staff was unprofessional.',
-                'status' => 'Assigned',
-                'response' => null,
-                'handled_by' => 1,
-                'resolved_at' => null,
-                'created_at' => Carbon::now()->subDays(1),
-                'updated_at' => Carbon::now()->subDays(1),
-            ],
-            [
-                'user_id' => 1,
-                'subject' => 'Cold Food',
-                'message' => 'The food arrived cold.',
-                'status' => 'Resolved',
-                'response' => 'Apologies, a refund has been issued.',
-                'handled_by' => 1,
-                'resolved_at' => Carbon::now()->subHours(3),
-                'created_at' => Carbon::now()->subDays(3),
-                'updated_at' => Carbon::now()->subHours(3),
-            ],
-            [
-                'user_id' => 1,
-                'subject' => 'Missing Item',
-                'message' => 'One item was missing from my order.',
-                'status' => 'Pending',
-                'response' => null,
-                'handled_by' => 1,
-                'resolved_at' => null,
-                'created_at' => Carbon::now()->subDays(4),
-                'updated_at' => Carbon::now()->subDays(4),
-            ],
-            [
-                'user_id' => 1,
-                'subject' => 'Overcharged',
-                'message' => 'I was charged more than expected.',
-                'status' => 'Closed',
-                'response' => 'Issue resolved, amount refunded.',
-                'handled_by' => 1,
-                'resolved_at' => Carbon::now()->subDays(1),
-                'created_at' => Carbon::now()->subDays(5),
-                'updated_at' => Carbon::now()->subDays(1),
-            ],
-        ]);
+            // --- ORDERS (reference real IDs) ---
+            $ordersSeed = [
+                ['ref' => 'ORD-001', 'subtotal' => 15.50, 'tax' => 1.55, 'discount' => 0.00, 'total' => 17.05, 'status' => 'pending',   'payment_method' => 'card', 'accepted_by' => $staffId, 'accepted_at' => Carbon::now()->subHours(2)],
+                ['ref' => 'ORD-002', 'subtotal' => 22.00, 'tax' => 2.20, 'discount' => 2.00, 'total' => 22.20, 'status' => 'confirmed', 'payment_method' => 'cash', 'accepted_by' => $staffId, 'accepted_at' => Carbon::now()->subHours(1)],
+                ['ref' => 'ORD-003', 'subtotal' => 10.00, 'tax' => 1.00, 'discount' => 0.00, 'total' => 11.00, 'status' => 'preparing', 'payment_method' => 'bkash','accepted_by' => $staffId, 'accepted_at' => Carbon::now()->subMinutes(30)],
+                ['ref' => 'ORD-004', 'subtotal' => 18.75, 'tax' => 1.88, 'discount' => 1.00, 'total' => 19.63, 'status' => 'ready',     'payment_method' => 'card', 'accepted_by' => $staffId, 'accepted_at' => Carbon::now()->subHours(5)],
+                ['ref' => 'ORD-005', 'subtotal' => 30.00, 'tax' => 3.00, 'discount' => 0.00, 'total' => 33.00, 'status' => 'completed', 'payment_method' => 'cash', 'accepted_by' => $staffId, 'accepted_at' => Carbon::now()->subDays(1)],
+            ];
+            $orderIds = [];
+            foreach ($ordersSeed as $o) {
+                $row = DB::table('orders')->where('reference', $o['ref'])->first();
+                $payload = [
+                    'user_id'       => $customerId,
+                    'subtotal'      => $o['subtotal'],
+                    'tax'           => $o['tax'],
+                    'discount'      => $o['discount'],
+                    'total'         => $o['total'],
+                    'status'        => $o['status'],
+                    'payment_method'=> $o['payment_method'],
+                    'accepted_by'   => $o['accepted_by'],
+                    'accepted_at'   => $o['accepted_at'],
+                    'updated_at'    => now(),
+                ];
+                if (!$row) {
+                    $id = DB::table('orders')->insertGetId($payload + [
+                        'reference'  => $o['ref'],
+                        'created_at' => Carbon::now()->subHours(3),
+                    ]);
+                } else {
+                    $id = $row->id;
+                    DB::table('orders')->where('id', $id)->update($payload);
+                }
+                $orderIds[$o['ref']] = $id;
+            }
 
-        // Seed Orders (5 records, User ID 1 as customer)
-        DB::table('orders')->insert([
-            [
-                'user_id' => 1,
-                'subtotal' => 15.50,
-                'tax' => 1.55,
-                'discount' => 0.00,
-                'total' => 17.05,
-                'status' => 'pending',
-                'payment_method' => 'card',
-                'reference' => 'ORD-001',
-                'accepted_by' => 1,
-                'accepted_at' => Carbon::now()->subHours(2),
-                'cancel_reason' => null,
-                'created_at' => Carbon::now()->subHours(3),
-                'updated_at' => Carbon::now()->subHours(3),
-            ],
-            [
-                'user_id' => 1,
-                'subtotal' => 22.00,
-                'tax' => 2.20,
-                'discount' => 2.00,
-                'total' => 22.20,
-                'status' => 'confirmed',
-                'payment_method' => 'cash',
-                'reference' => 'ORD-002',
-                'accepted_by' => 1,
-                'accepted_at' => Carbon::now()->subHours(1),
-                'cancel_reason' => null,
-                'created_at' => Carbon::now()->subHours(4),
-                'updated_at' => Carbon::now()->subHours(1),
-            ],
-            [
-                'user_id' => 1,
-                'subtotal' => 10.00,
-                'tax' => 1.00,
-                'discount' => 0.00,
-                'total' => 11.00,
-                'status' => 'preparing',
-                'payment_method' => 'bkash',
-                'reference' => 'ORD-003',
-                'accepted_by' => 1,
-                'accepted_at' => Carbon::now()->subMinutes(30),
-                'cancel_reason' => null,
-                'created_at' => Carbon::now()->subHours(2),
-                'updated_at' => Carbon::now()->subMinutes(30),
-            ],
-            [
-                'user_id' => 1,
-                'subtotal' => 18.75,
-                'tax' => 1.88,
-                'discount' => 1.00,
-                'total' => 19.63,
-                'status' => 'ready',
-                'payment_method' => 'card',
-                'reference' => 'ORD-004',
-                'accepted_by' => 1,
-                'accepted_at' => Carbon::now()->subHours(5),
-                'cancel_reason' => null,
-                'created_at' => Carbon::now()->subHours(6),
-                'updated_at' => Carbon::now()->subHours(5),
-            ],
-            [
-                'user_id' => 1,
-                'subtotal' => 30.00,
-                'tax' => 3.00,
-                'discount' => 0.00,
-                'total' => 33.00,
-                'status' => 'completed',
-                'payment_method' => 'cash',
-                'reference' => 'ORD-005',
-                'accepted_by' => 1,
-                'accepted_at' => Carbon::now()->subDays(1),
-                'cancel_reason' => null,
-                'created_at' => Carbon::now()->subDays(2),
-                'updated_at' => Carbon::now()->subDays(1),
-            ],
-        ]);
+            // --- ORDER ITEMS ---
+            $orderItems = [
+                ['ref' => 'ORD-001', 'item' => 'Margherita Pizza', 'qty' => 2, 'unit' => 7.75, 'line' => 15.50, 'note' => 'Extra spicy', 'addons' => ['Extra Cheese' => 1.00], 'sel' => ['Size' => 'Large']],
+                ['ref' => 'ORD-002', 'item' => 'Pepperoni Pizza',  'qty' => 1, 'unit' => 22.00, 'line' => 22.00, 'note' => 'No onions',   'addons' => ['Extra Sauce'  => 0.50], 'sel' => ['Size' => 'Medium']],
+                ['ref' => 'ORD-003', 'item' => 'Caesar Salad',     'qty' => 1, 'unit' => 10.00, 'line' => 10.00, 'note' => null,         'addons' => null,                      'sel' => null],
+                ['ref' => 'ORD-004', 'item' => 'Chicken Wings',    'qty' => 3, 'unit' => 6.25,  'line' => 18.75, 'note' => 'Well-done',  'addons' => ['Extra Topping' => 1.50], 'sel' => ['Size' => 'Small']],
+                ['ref' => 'ORD-005', 'item' => 'Tiramisu',         'qty' => 1, 'unit' => 30.00, 'line' => 30.00, 'note' => 'No substitutions', 'addons' => null,                'sel' => null],
+            ];
+            foreach ($orderItems as $oi) {
+                $orderId = $orderIds[$oi['ref']] ?? null;
+                $menuId  = $menuIds[$oi['item']] ?? null;
+                if (!$orderId || !$menuId) continue;
 
-        // Seed Order Items (5 records, linked to Orders)
-        DB::table('order_items')->insert([
-            [
-                'order_id' => 1,
-                'menu_item_id' => 1,
-                'quantity' => 2,
-                'unit_price' => 7.75,
-                'line_total' => 15.50,
-                'note' => 'Extra spicy',
-                'addons' => json_encode(['Extra Cheese' => 1.00]),
-                'selections' => json_encode(['Size' => 'Large']),
-                'created_at' => Carbon::now()->subHours(3),
-                'updated_at' => Carbon::now()->subHours(3),
-            ],
-            [
-                'order_id' => 2,
-                'menu_item_id' => 2,
-                'quantity' => 1,
-                'unit_price' => 22.00,
-                'line_total' => 22.00,
-                'note' => 'No onions',
-                'addons' => json_encode(['Extra Sauce' => 0.50]),
-                'selections' => json_encode(['Size' => 'Medium']),
-                'created_at' => Carbon::now()->subHours(4),
-                'updated_at' => Carbon::now()->subHours(1),
-            ],
-            [
-                'order_id' => 3,
-                'menu_item_id' => 3,
-                'quantity' => 1,
-                'unit_price' => 10.00,
-                'line_total' => 10.00,
-                'note' => null,
-                'addons' => null,
-                'selections' => null,
-                'created_at' => Carbon::now()->subHours(2),
-                'updated_at' => Carbon::now()->subMinutes(30),
-            ],
-            [
-                'order_id' => 4,
-                'menu_item_id' => 4,
-                'quantity' => 3,
-                'unit_price' => 6.25,
-                'line_total' => 18.75,
-                'note' => 'Well-done',
-                'addons' => json_encode(['Extra Topping' => 1.50]),
-                'selections' => json_encode(['Size' => 'Small']),
-                'created_at' => Carbon::now()->subHours(6),
-                'updated_at' => Carbon::now()->subHours(5),
-            ],
-            [
-                'order_id' => 5,
-                'menu_item_id' => 5,
-                'quantity' => 1,
-                'unit_price' => 30.00,
-                'line_total' => 30.00,
-                'note' => 'No substitutions',
-                'addons' => null,
-                'selections' => null,
-                'created_at' => Carbon::now()->subDays(2),
-                'updated_at' => Carbon::now()->subDays(1),
-            ],
-        ]);
+                // Avoid duplicates by matching order_id + menu_item_id + note
+                $exists = DB::table('order_items')
+                    ->where(compact('orderId', 'menuId'))
+                    ->where('note', $oi['note'])
+                    ->first();
 
-        // Seed Inventory Movements (5 records, linked to Menu Items)
-        DB::table('inventory_movements')->insert([
-            [
-                'menu_item_id' => 1,
-                'delta_qty' => 10,
-                'type' => 'in',
-                'reason' => 'New stock',
-                'reference' => 'PO-001',
-                'performed_by' => 1,
-                'performed_at' => Carbon::now()->subDays(1),
-                'created_at' => Carbon::now()->subDays(1),
-                'updated_at' => Carbon::now()->subDays(1),
-            ],
-            [
-                'menu_item_id' => 2,
-                'delta_qty' => -5,
-                'type' => 'out',
-                'reason' => 'Sold',
-                'reference' => 'ORD-002',
-                'performed_by' => 1,
-                'performed_at' => Carbon::now()->subHours(4),
-                'created_at' => Carbon::now()->subHours(4),
-                'updated_at' => Carbon::now()->subHours(4),
-            ],
-            [
-                'menu_item_id' => 3,
-                'delta_qty' => 0,
-                'type' => 'adjustment',
-                'reason' => 'Inventory check',
-                'reference' => 'INV-001',
-                'performed_by' => 1,
-                'performed_at' => Carbon::now()->subDays(2),
-                'created_at' => Carbon::now()->subDays(2),
-                'updated_at' => Carbon::now()->subDays(2),
-            ],
-            [
-                'menu_item_id' => 4,
-                'delta_qty' => -3,
-                'type' => 'out',
-                'reason' => 'Spoilage',
-                'reference' => null,
-                'performed_by' => 1,
-                'performed_at' => Carbon::now()->subHours(6),
-                'created_at' => Carbon::now()->subHours(6),
-                'updated_at' => Carbon::now()->subHours(6),
-            ],
-            [
-                'menu_item_id' => 5,
-                'delta_qty' => 5,
-                'type' => 'in',
-                'reason' => 'Restock',
-                'reference' => 'PO-002',
-                'performed_by' => 1,
-                'performed_at' => Carbon::now()->subDays(3),
-                'created_at' => Carbon::now()->subDays(3),
-                'updated_at' => Carbon::now()->subDays(3),
-            ],
-        ]);
+                if (!$exists) {
+                    DB::table('order_items')->insert([
+                        'order_id'     => $orderId,
+                        'menu_item_id' => $menuId,
+                        'quantity'     => $oi['qty'],
+                        'unit_price'   => $oi['unit'],
+                        'line_total'   => $oi['line'],
+                        'note'         => $oi['note'],
+                        'addons'       => $oi['addons'] ? json_encode($oi['addons']) : null,
+                        'selections'   => $oi['sel'] ? json_encode($oi['sel']) : null,
+                        'created_at'   => now()->subHours(2),
+                        'updated_at'   => now()->subHours(1),
+                    ]);
+                }
+            }
 
-        // Seed Salaries (5 records, Staff ID 1)
-        DB::table('salaries')->insert([
-            [
-                'staff_id' => 1,
-                'for_month' => '2025-09-01',
-                'amount' => 2000.00,
-                'paid_at' => null,
-                'status' => 'pending',
-                'note' => 'Pending approval',
-                'created_at' => now(),
-                'updated_at' => now(),
-            ],
-            [
-                'staff_id' => 1,
-                'for_month' => '2025-08-01',
-                'amount' => 2000.00,
-                'paid_at' => Carbon::now()->subDays(10),
-                'status' => 'paid',
-                'note' => 'Paid on time',
-                'created_at' => now(),
-                'updated_at' => now(),
-            ],
-            [
-                'staff_id' => 1,
-                'for_month' => '2025-07-01',
-                'amount' => 2000.00,
-                'paid_at' => Carbon::now()->subDays(40),
-                'status' => 'paid',
-                'note' => 'Paid late',
-                'created_at' => now(),
-                'updated_at' => now(),
-            ],
-            [
-                'staff_id' => 1,
-                'for_month' => '2025-06-01',
-                'amount' => 2000.00,
-                'paid_at' => null,
-                'status' => 'failed',
-                'note' => 'Payment failed',
-                'created_at' => now(),
-                'updated_at' => now(),
-            ],
-            [
-                'staff_id' => 1,
-                'for_month' => '2025-05-01',
-                'amount' => 2000.00,
-                'paid_at' => Carbon::now()->subDays(80),
-                'status' => 'paid',
-                'note' => 'Paid early',
-                'created_at' => now(),
-                'updated_at' => now(),
-            ],
-        ]);
+            // --- INVENTORY MOVEMENTS ---
+            $inv = [
+                ['item' => 'Margherita Pizza', 'delta' => 10,  'type' => 'in',          'reason' => 'New stock',  'ref' => 'PO-001', 'when' => Carbon::now()->subDays(1)],
+                ['item' => 'Pepperoni Pizza',  'delta' => -5,  'type' => 'out',         'reason' => 'Sold',       'ref' => 'ORD-002','when' => Carbon::now()->subHours(4)],
+                ['item' => 'Caesar Salad',     'delta' => 0,   'type' => 'adjustment',  'reason' => 'Inventory check', 'ref' => 'INV-001','when' => Carbon::now()->subDays(2)],
+                ['item' => 'Chicken Wings',    'delta' => -3,  'type' => 'out',         'reason' => 'Spoilage',   'ref' => null,     'when' => Carbon::now()->subHours(6)],
+                ['item' => 'Tiramisu',         'delta' => 5,   'type' => 'in',          'reason' => 'Restock',    'ref' => 'PO-002', 'when' => Carbon::now()->subDays(3)],
+            ];
+            foreach ($inv as $row) {
+                $menuId = $menuIds[$row['item']] ?? null;
+                if (!$menuId) continue;
+                $exists = DB::table('inventory_movements')
+                    ->where('menu_item_id', $menuId)
+                    ->where('type', $row['type'])
+                    ->where('reason', $row['reason'])
+                    ->where('reference', $row['ref'])
+                    ->first();
+                if (!$exists) {
+                    DB::table('inventory_movements')->insert([
+                        'menu_item_id' => $menuId,
+                        'delta_qty'    => $row['delta'],
+                        'type'         => $row['type'],
+                        'reason'       => $row['reason'],
+                        'reference'    => $row['ref'],
+                        'performed_by' => $staffId,
+                        'performed_at' => $row['when'],
+                        'created_at'   => $row['when'],
+                        'updated_at'   => $row['when'],
+                    ]);
+                }
+            }
 
-        // Seed Staff Shifts (5 records, Staff ID 1, Shift IDs 1-3)
-        DB::table('staff_shifts')->insert([
-            [
-                'staff_id' => 1,
-                'shift_id' => 1,
-                'date' => '2025-09-20',
-                'status' => 'assigned',
-                'created_at' => now(),
-                'updated_at' => now(),
-            ],
-            [
-                'staff_id' => 1,
-                'shift_id' => 2,
-                'date' => '2025-09-21',
-                'status' => 'assigned',
-                'created_at' => now(),
-                'updated_at' => now(),
-            ],
-            [
-                'staff_id' => 1,
-                'shift_id' => 3,
-                'date' => '2025-09-22',
-                'status' => 'assigned',
-                'created_at' => now(),
-                'updated_at' => now(),
-            ],
-            [
-                'staff_id' => 1,
-                'shift_id' => 1,
-                'date' => '2025-09-23',
-                'status' => 'assigned',
-                'created_at' => now(),
-                'updated_at' => now(),
-            ],
-            [
-                'staff_id' => 1,
-                'shift_id' => 2,
-                'date' => '2025-09-24',
-                'status' => 'assigned',
-                'created_at' => now(),
-                'updated_at' => now(),
-            ],
-        ]);
+            // --- SALARIES ---
+            $salaries = [
+                ['ym' => '2025-09-01', 'amount' => 2000.00, 'status' => 'pending', 'note' => 'Pending approval', 'paid_at' => null],
+                ['ym' => '2025-08-01', 'amount' => 2000.00, 'status' => 'paid',    'note' => 'Paid on time',     'paid_at' => Carbon::now()->subDays(10)],
+                ['ym' => '2025-07-01', 'amount' => 2000.00, 'status' => 'paid',    'note' => 'Paid late',        'paid_at' => Carbon::now()->subDays(40)],
+                ['ym' => '2025-06-01', 'amount' => 2000.00, 'status' => 'failed',  'note' => 'Payment failed',   'paid_at' => null],
+                ['ym' => '2025-05-01', 'amount' => 2000.00, 'status' => 'paid',    'note' => 'Paid early',       'paid_at' => Carbon::now()->subDays(80)],
+            ];
+            foreach ($salaries as $sal) {
+                $exists = DB::table('salaries')
+                    ->where('staff_id', $staffId)
+                    ->where('for_month', $sal['ym'])
+                    ->first();
+                if (!$exists) {
+                    DB::table('salaries')->insert([
+                        'staff_id'   => $staffId,
+                        'for_month'  => $sal['ym'],
+                        'amount'     => $sal['amount'],
+                        'paid_at'    => $sal['paid_at'],
+                        'status'     => $sal['status'],
+                        'note'       => $sal['note'],
+                        'created_at' => now(), 'updated_at' => now(),
+                    ]);
+                }
+            }
+
+            // --- STAFF SHIFTS ---
+            $staffShiftRows = [
+                ['name' => 'Morning', 'date' => '2025-09-20'],
+                ['name' => 'Evening', 'date' => '2025-09-21'],
+                ['name' => 'Night',   'date' => '2025-09-22'],
+                ['name' => 'Morning', 'date' => '2025-09-23'],
+                ['name' => 'Evening', 'date' => '2025-09-24'],
+            ];
+            foreach ($staffShiftRows as $ss) {
+                $shiftId = $shiftIds[$ss['name']] ?? null;
+                if (!$shiftId) continue;
+                $exists = DB::table('staff_shifts')
+                    ->where('staff_id', $staffId)
+                    ->where('shift_id', $shiftId)
+                    ->where('date', $ss['date'])
+                    ->first();
+                if (!$exists) {
+                    DB::table('staff_shifts')->insert([
+                        'staff_id'   => $staffId,
+                        'shift_id'   => $shiftId,
+                        'date'       => $ss['date'],
+                        'status'     => 'assigned',
+                        'created_at' => now(), 'updated_at' => now(),
+                    ]);
+                }
+            }
+
+            // --- COMPLAINTS (link to real user/staff) ---
+            $complaints = [
+                ['subject' => 'Delayed Delivery', 'message' => 'My order was delayed by 2 hours.',              'status' => 'Pending',  'response' => null,                         'created_at' => Carbon::now()->subDays(2), 'updated_at' => Carbon::now()->subDays(2)],
+                ['subject' => 'Rude Staff',       'message' => 'The staff was unprofessional.',                 'status' => 'Assigned', 'response' => null,                         'created_at' => Carbon::now()->subDays(1), 'updated_at' => Carbon::now()->subDays(1)],
+                ['subject' => 'Cold Food',        'message' => 'The food arrived cold.',                        'status' => 'Resolved', 'response' => 'Apologies, a refund issued.', 'created_at' => Carbon::now()->subDays(3), 'updated_at' => Carbon::now()->subHours(3), 'resolved_at' => Carbon::now()->subHours(3)],
+                ['subject' => 'Missing Item',     'message' => 'One item was missing from my order.',           'status' => 'Pending',  'response' => null,                         'created_at' => Carbon::now()->subDays(4), 'updated_at' => Carbon::now()->subDays(4)],
+                ['subject' => 'Overcharged',      'message' => 'I was charged more than expected.',             'status' => 'Closed',   'response' => 'Issue resolved, refunded.',  'created_at' => Carbon::now()->subDays(5), 'updated_at' => Carbon::now()->subDays(1), 'resolved_at' => Carbon::now()->subDays(1)],
+            ];
+            foreach ($complaints as $c) {
+                $exists = DB::table('complaints')
+                    ->where('user_id', $customerId)
+                    ->where('subject', $c['subject'])
+                    ->first();
+                if (!$exists) {
+                    DB::table('complaints')->insert([
+                        'user_id'     => $customerId,
+                        'subject'     => $c['subject'],
+                        'message'     => $c['message'],
+                        'status'      => $c['status'],
+                        'response'    => $c['response'] ?? null,
+                        'handled_by'  => $staffId,
+                        'resolved_at' => $c['resolved_at'] ?? null,
+                        'created_at'  => $c['created_at'],
+                        'updated_at'  => $c['updated_at'],
+                    ]);
+                }
+            }
+        });
     }
 }
