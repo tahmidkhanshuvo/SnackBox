@@ -1,37 +1,49 @@
 <?php
 
-// Build allowed origins list from CSV env (e.g. CORS_ALLOWED_ORIGINS="https://snackbox-frontend.onrender.com,http://localhost:5173")
-$origins = array_values(array_filter(array_map(
-    'trim',
-    explode(',', (string) env('CORS_ALLOWED_ORIGINS', ''))
-)));
+// IMPORTANT: when supports_credentials=true you CANNOT use "*" in allowed_origins.
+// Put exact origins (scheme + host) separated with commas in CORS_ALLOWED_ORIGINS.
 
-// Safe fallback in production if env not set
-if (empty($origins) && env('APP_ENV') === 'production') {
-    $origins = ['https://snackbox-frontend.onrender.com'];
+$origins = trim(env('CORS_ALLOWED_ORIGINS', ''));
+if ($origins === '') {
+    // Sensible fallback if you forgot to set it
+    $fallbacks = array_filter([env('FRONTEND_URL'), env('APP_URL')]);
+    $origins = implode(',', $fallbacks);
 }
 
 return [
 
-    // Apply CORS to API + Sanctum + web auth endpoints used by the SPA
-    'paths' => [
-        'api/*',
-        'sanctum/csrf-cookie',
-        'login', 'logout', 'register',
-        'admin/login',
-        // Optional, but helpful:
-        'broadcasting/auth',
-        'healthz',
-    ],
+    /*
+    |--------------------------------------------------------------------------
+    | Paths
+    |--------------------------------------------------------------------------
+    | Apply CORS to ALL endpoints so even errors/edge routes carry headers.
+    | (You can scope this to ['api/*','sanctum/csrf-cookie','login','logout','register','admin/login']
+    |  if you prefer to be strict.)
+    */
+    'paths' => ['*'],
 
     'allowed_methods' => ['*'],
-    'allowed_origins' => $origins,
+
+    /*
+    |--------------------------------------------------------------------------
+    | Allowed Origins
+    |--------------------------------------------------------------------------
+    | Example env:
+    | CORS_ALLOWED_ORIGINS=https://snackbox-frontend.onrender.com,http://localhost:5173
+    */
+    'allowed_origins' => array_values(array_filter(array_map('trim', explode(',', $origins)))),
+
     'allowed_origins_patterns' => [],
+
+    // Accept any incoming headers from the browser
     'allowed_headers' => ['*'],
+
+    // Expose nothing special (add e.g. Content-Disposition if you stream files)
     'exposed_headers' => [],
-    // cache preflight responses for 1 hour
+
+    // Cache preflights for an hour
     'max_age' => 3600,
 
-    // Required for Sanctum cookie-based SPA auth
+    // We’re sending cookies / Authorization → must be true
     'supports_credentials' => true,
 ];
