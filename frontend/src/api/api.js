@@ -28,6 +28,12 @@ const apiClient = axios.create({
   xsrfHeaderName: "X-XSRF-TOKEN",
 });
 
+// If a token exists from a previous login, attach it on boot
+try {
+  const saved = typeof window !== "undefined" ? localStorage.getItem("token") : null;
+  if (saved) apiClient.defaults.headers.Authorization = `Bearer ${saved}`;
+} catch { /* ignore */ }
+
 let csrfPromise = null;
 export async function ensureCsrf() {
   if (!csrfPromise) csrfPromise = apiClient.get("/sanctum/csrf-cookie");
@@ -65,16 +71,44 @@ export async function getMe() {
     throw e;
   }
 }
-export async function login(email, password, remember = false) {
-  const { data } = await post("/login", { email, password, remember });
-  return data;
+
+// Token auth fallback (no CSRF/cookies required)
+export async function tokenLogin(email, password) {
+  const { data } = await apiClient.post("/api/token-login", { email, password });
+  return data; // { token, user }
 }
+
+export async function login(email, password, remember = false) {
+  try {
+    const { data } = await post("/login", { email, password, remember });
+    return data;
+  } catch (e) {
+    const s = e?.response?.status;
+    if (s === 419 || s === 401 || s === 400) {
+      const { data } = await apiClient.post("/api/token-login", { email, password });
+      return data; // { token, user }
+    }
+    throw e;
+  }
+}
+
 export async function register(payload) {
   const { data } = await post("/register", payload);
+  // Staff: 202 + not logged in
+  if (payload?.account_type === "staff") return data;
+  // If cookie session not established, get a token
+  if (!data?.token) {
+    const t = await apiClient.post("/api/token-login", {
+      email: payload.email,
+      password: payload.password,
+    });
+    return t.data; // { token, user }
+  }
   return data;
 }
+
 export async function logout() {
-  await post("/logout");
+  try { await post("/logout"); } catch { /* ignore */ }
 }
 
 /* ================== Admin (web route for session login) ================== */

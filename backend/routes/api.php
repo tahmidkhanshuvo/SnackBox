@@ -15,8 +15,18 @@ Route::get('/healthz', fn () => response()->json(['ok' => true, 'time' => now()]
 
 /*
 |--------------------------------------------------------------------------
-| Public catalog
+| Token auth fallback (no cookies/CSRF required)
+|-------------------------------------------------------------------------- 
+| Uses AuthController::tokenLogin/tokenLogout which you already have.
+| Keep these OUTSIDE any auth group.
+*/
+Route::post('/token-login',  [AuthController::class, 'tokenLogin']);   // public
+Route::post('/token-logout', [AuthController::class, 'tokenLogout'])->middleware('auth:sanctum');
+
+/*
 |--------------------------------------------------------------------------
+| Public catalog
+|-------------------------------------------------------------------------- 
 */
 Route::get('/menu-items', [MenuItemController::class, 'index']);
 Route::get('/menu-items/{menuItem}', [MenuItemController::class, 'show'])->whereNumber('menuItem');
@@ -25,7 +35,7 @@ Route::get('/menu-items/{menuItem}/stock', [InventoryMovementController::class, 
 /*
 |--------------------------------------------------------------------------
 | Auth (Sanctum-protected; session cookie established via web.php)
-|--------------------------------------------------------------------------
+|-------------------------------------------------------------------------- 
 */
 Route::prefix('auth')->middleware('auth:sanctum')->group(function () {
     Route::get('/me', [AuthController::class, 'me']);
@@ -34,8 +44,8 @@ Route::prefix('auth')->middleware('auth:sanctum')->group(function () {
 
 /*
 |--------------------------------------------------------------------------
-| Authenticated API (Sanctum cookie session)
-|--------------------------------------------------------------------------
+| Authenticated API (Sanctum cookie session OR Bearer token)
+|-------------------------------------------------------------------------- 
 */
 Route::middleware('auth:sanctum')->group(function () {
 
@@ -88,11 +98,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::patch('/orders/{order}/status', [OrderController::class, 'updateStatus'])->whereNumber('order');
     Route::patch('/orders/{order}', [OrderController::class, 'updateStatus'])->whereNumber('order');
 
-    /*
-    |--------------------------------------------------------------------------
-    | Admin area (custom middleware)
-    |--------------------------------------------------------------------------
-    */
+    // ---- Admin area (custom middleware)
     Route::prefix('admin')->middleware('admin.only')->group(function () {
         Route::get('/pending-users', [AdminController::class, 'pendingUsers']);
         Route::post('/approve-user/{id}', [AdminController::class, 'approveUser'])->whereNumber('id');

@@ -16,19 +16,25 @@ WORKDIR /var/www/html
 
 RUN apk add --no-cache bash icu-dev oniguruma-dev libzip-dev $PHPIZE_DEPS \
   && docker-php-ext-configure intl \
-  && docker-php-ext-install -j$(nproc) pdo_mysql intl mbstring zip bcmath exif opcache \
+  && docker-php-ext-install -j"$(nproc)" pdo_mysql intl mbstring zip bcmath exif opcache \
   && rm -rf /var/cache/apk/*
 
+# App code + vendor
 COPY . .
 COPY --from=vendor /app/vendor ./vendor
 
+# Runtime user + permissions (include public so symlink can be created)
 RUN addgroup -g 1000 laravel && adduser -u 1000 -G laravel -D laravel \
   && mkdir -p storage/logs bootstrap/cache \
   && touch storage/logs/laravel.log \
-  && chown -R laravel:laravel storage bootstrap/cache \
+  && chown -R laravel:laravel storage bootstrap/cache public \
   && chmod -R ug+rw storage bootstrap/cache
 
+# Safe: don't fail the build if no providers
 RUN php artisan package:discover --ansi || true
+
+# Create public/storage symlink at build time (as root)
+RUN [ -L public/storage ] || ln -s storage/app/public public/storage || true
 
 ENV PORT=10000 \
     APP_ENV=production \
@@ -44,12 +50,14 @@ USER laravel
 CMD ["/bin/sh","-lc", "\
   [ -f .env ] || cp .env.example .env; \
   grep -q '^APP_KEY=base64' .env || php artisan key:generate --force --ansi; \
-  php artisan config:clear || true; \
-  php artisan route:clear || true; \
-  php artisan config:cache || true; \
-  php artisan route:cache || true; \
-  # wait for DB (up to ~60s) \
-  for i in $(seq 1 30); do php artisan migrate:status --no-ansi >/dev/null 2>&1 && ok=1 && break; echo \"Waiting for DB ($i/30)...\"; sleep 2; done; \
+  php artisan optimize:clear || true; \
+  php artisan config:clear   || true; \
+  php artisan route:clear    || true; \
+  php artisan cache:clear    || true; \
+  php artisan config:cache   || true; \
+  php artisan route:cache    || true; \
+  if [ ! -L public/storage ]; then rm -rf public/storage 2>/dev/null || true; ln -s storage/app/public public/storage || true; fi; \
+  for i in $(seq 1 30); do php artisan migrate:status --no-ansi >/dev/null 2>&1 && break; echo \"Waiting for DB ($i/30)...\"; sleep 2; done; \
   if [ \"${RESET_DB}\" = \"1\" ]; then \
     echo 'RESET_DB=1 → php artisan migrate:fresh --seed --force'; \
     php artisan migrate:fresh --seed --force; \
@@ -57,6 +65,6 @@ CMD ["/bin/sh","-lc", "\
     php artisan migrate --force; \
     if [ \"${SEED}\" = \"1\" ]; then php artisan db:seed --force; fi; \
   fi; \
-  php artisan storage:link || true; \
   php artisan serve --host=0.0.0.0 --port=${PORT} \
 "]
+# ---- End startup ----
