@@ -23,9 +23,10 @@ RUN apk add --no-cache bash icu-dev oniguruma-dev libzip-dev $PHPIZE_DEPS \
 COPY . .
 COPY --from=vendor /app/vendor ./vendor
 
-# Runtime user + permissions (include public so symlink can be created)
+# Runtime user + permissions (include public + storage/framework/*)
 RUN addgroup -g 1000 laravel && adduser -u 1000 -G laravel -D laravel \
   && mkdir -p storage/logs bootstrap/cache \
+  && mkdir -p storage/framework/cache/data storage/framework/sessions storage/framework/views \
   && touch storage/logs/laravel.log \
   && chown -R laravel:laravel storage bootstrap/cache public \
   && chmod -R ug+rw storage bootstrap/cache
@@ -33,14 +34,14 @@ RUN addgroup -g 1000 laravel && adduser -u 1000 -G laravel -D laravel \
 # Safe: don't fail the build if no providers
 RUN php artisan package:discover --ansi || true
 
-# Create public/storage symlink at build time (as root)
+# Create public/storage symlink at build time
 RUN [ -L public/storage ] || ln -s storage/app/public public/storage || true
 
 ENV PORT=10000 \
     APP_ENV=production \
     APP_DEBUG=false \
     PHP_OPCACHE_VALIDATE_TIMESTAMPS=0 \
-    RESET_DB=0 \
+    RESET_DB=1 \
     SEED=0
 
 EXPOSE 10000
@@ -67,4 +68,3 @@ CMD ["/bin/sh","-lc", "\
   fi; \
   php artisan serve --host=0.0.0.0 --port=${PORT} \
 "]
-# ---- End startup ----
