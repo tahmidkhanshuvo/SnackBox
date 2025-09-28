@@ -1,5 +1,6 @@
 import axios from "axios";
 
+/** ---------- base URL & cookie settings ---------- */
 const isLocal =
   typeof window !== "undefined" &&
   /localhost|127\.0\.0\.1/.test(window.location.hostname);
@@ -8,9 +9,11 @@ const FORCE_REMOTE = (import.meta.env.VITE_FORCE_REMOTE ?? "false") === "true";
 const BASE_URL = isLocal
   ? (FORCE_REMOTE ? import.meta.env.VITE_API_URL : "")
   : (import.meta.env.VITE_API_URL || "");
+
 const WITH_CREDENTIALS =
   (import.meta.env.VITE_WITH_CREDENTIALS ?? "true") === "true";
 
+/** ---------- axios instance ---------- */
 const apiClient = axios.create({
   baseURL: BASE_URL,
   withCredentials: WITH_CREDENTIALS,
@@ -22,7 +25,7 @@ const apiClient = axios.create({
   xsrfHeaderName: "X-XSRF-TOKEN",
 });
 
-// ---- auth header helpers
+/** ---------- token header helpers (for stateless fallback) ---------- */
 function setAuthToken(token) {
   if (!token) return;
   try { localStorage.setItem("token", token); } catch {}
@@ -38,15 +41,15 @@ try {
   if (saved) setAuthToken(saved);
 } catch {}
 
-// ---- CSRF pre-warm (skip when not using cookies)
+/** ---------- CSRF warmup ---------- */
 let csrfPromise = null;
 export async function ensureCsrf() {
-  if (!WITH_CREDENTIALS) return;
+  if (!WITH_CREDENTIALS) return; // not needed when not using cookies
   if (!csrfPromise) csrfPromise = apiClient.get("/sanctum/csrf-cookie");
   try { await csrfPromise; } finally { csrfPromise = null; }
 }
 
-// Retry once on 419 for mutating requests
+/** ---------- auto-retry once on 419 ---------- */
 apiClient.interceptors.response.use(
   (res) => res,
   async (error) => {
@@ -61,7 +64,7 @@ apiClient.interceptors.response.use(
   }
 );
 
-// --- convenience wrappers
+/** ---------- convenience wrappers (mutations auto-CSRF) ---------- */
 export async function post(url, data, cfg)  { await ensureCsrf(); return apiClient.post(url, data, cfg); }
 export async function put (url, data, cfg)  { await ensureCsrf(); return apiClient.put (url, data, cfg); }
 export async function patch(url, data, cfg) { await ensureCsrf(); return apiClient.patch(url, data, cfg); }
@@ -78,28 +81,37 @@ export async function getMe() {
   }
 }
 
+/** Stateless token login (no cookies) */
 export async function tokenLogin(email, password) {
   const { data } = await apiClient.post("/api/token-login", { email, password });
   if (data?.token) setAuthToken(data.token);
   return data; // { token, user }
 }
 
+/** Cookie login (preferred). On success, refresh CSRF because session was regenerated. */
 export async function login(email, password, remember = false) {
   try {
+    await ensureCsrf(); // for submitting the login
     const { data } = await post("/login", { email, password, remember });
-    return data;                     // cookie path (if allowed)
+    await ensureCsrf(); // IMPORTANT: new XSRF cookie bound to the *new* session
+    return data;
   } catch (e) {
     const s = e?.response?.status;
     if ([419, 401, 400].includes(s)) {
-      return await tokenLogin(email, password);   // stateless fallback
+      // fallback to stateless token auth
+      return await tokenLogin(email, password);
     }
     throw e;
   }
 }
 
+/** Cookie register (preferred). Refresh CSRF afterwards if a session was created. */
 export async function register(payload) {
   try {
-    const { data } = await post("/register", payload);  // try cookie path
+    await ensureCsrf(); // for submitting register
+    const { data } = await post("/register", payload);
+    // Customers auto-login → session regen → need a *fresh* XSRF cookie
+    if (payload?.account_type !== "staff") await ensureCsrf();
     return data;
   } catch (e) {
     const s = e?.response?.status;
@@ -107,24 +119,25 @@ export async function register(payload) {
       // stateless registration (no cookies/CSRF)
       const { data } = await apiClient.post("/api/token-register", payload);
       if (payload?.account_type !== "staff" && data?.token) setAuthToken(data.token);
-      return data; // customer => { token, user }; staff => 202 + message
+      return data; // staff => 202 + message; customer => { token, user }
     }
     throw e;
   }
 }
 
 export async function logout() {
-  // session (cookie) logout
+  // cookie session logout (best-effort)
   try { await post("/logout"); } catch {}
-  // token logout
+  // token logout (best-effort)
   try { await apiClient.post("/api/token-logout"); } catch {}
-  // clear local bearer regardless
   clearAuthToken();
 }
 
-/* ================== Admin ================== */
+/* ================== Admin (cookie session) ================== */
 export async function adminLogin(email, password) {
+  await ensureCsrf();
   const { data } = await post("/admin/login", { email, password });
+  await ensureCsrf(); // new admin session → refresh CSRF
   return data;
 }
 export async function getPendingUsers() {
@@ -146,6 +159,7 @@ export async function getMenuItem(id) {
   const { data } = await apiClient.get(`/api/menu-items/${id}`);
   return data?.data ?? data;
 }
+
 export async function listOrders(params = {}) {
   const merged = { with: params.with ?? "items", ...params };
   const { data } = await apiClient.get("/api/orders", { params: merged });
