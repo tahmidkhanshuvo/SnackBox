@@ -10,6 +10,9 @@ use App\Http\Controllers\AuthController;
 | These run through the "web" middleware and use cookies.
 */
 
+// 🔸 Handle all CORS preflights so they never 404
+Route::options('/{any}', fn () => response()->noContent())->where('any', '.*');
+
 Route::view('/', 'welcome');
 
 // Health check (no DB)

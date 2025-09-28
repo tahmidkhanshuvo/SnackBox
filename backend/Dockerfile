@@ -5,7 +5,6 @@
 ############################
 FROM composer:2 AS vendor
 WORKDIR /app
-
 COPY composer.json composer.lock ./
 RUN composer install --no-dev --no-interaction --prefer-dist --optimize-autoloader --no-scripts
 
@@ -35,10 +34,8 @@ ENV PORT=10000 \
     APP_ENV=production \
     APP_DEBUG=false \
     PHP_OPCACHE_VALIDATE_TIMESTAMPS=0 \
-    RESET_DB=1 \
+    RESET_DB=0 \
     SEED=0
-# RESET_DB=1 → DROP & RECREATE schema, then seed
-# SEED=1 → run db:seed after normal migrate (unused if RESET_DB=1)
 
 EXPOSE 10000
 USER laravel
@@ -49,9 +46,10 @@ CMD ["/bin/sh","-lc", "\
   grep -q '^APP_KEY=base64' .env || php artisan key:generate --force --ansi; \
   php artisan config:clear || true; \
   php artisan route:clear || true; \
-  php artisan config:cache && php artisan route:cache; \
+  php artisan config:cache || true; \
+  php artisan route:cache || true; \
   # wait for DB (up to ~60s) \
-  for i in $(seq 1 30); do php artisan migrate:status --no-ansi >/dev/null 2>&1 && break; echo \"Waiting for DB ($i/30)...\"; sleep 2; done; \
+  for i in $(seq 1 30); do php artisan migrate:status --no-ansi >/dev/null 2>&1 && ok=1 && break; echo \"Waiting for DB ($i/30)...\"; sleep 2; done; \
   if [ \"${RESET_DB}\" = \"1\" ]; then \
     echo 'RESET_DB=1 → php artisan migrate:fresh --seed --force'; \
     php artisan migrate:fresh --seed --force; \
@@ -59,5 +57,6 @@ CMD ["/bin/sh","-lc", "\
     php artisan migrate --force; \
     if [ \"${SEED}\" = \"1\" ]; then php artisan db:seed --force; fi; \
   fi; \
+  php artisan storage:link || true; \
   php artisan serve --host=0.0.0.0 --port=${PORT} \
 "]
