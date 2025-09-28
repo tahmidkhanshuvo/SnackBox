@@ -10,23 +10,32 @@ use App\Http\Controllers\ComplaintController;
 use App\Http\Controllers\OrderController;
 use App\Http\Controllers\ShiftController;
 use App\Http\Controllers\AdminController;
+use Laravel\Sanctum\Http\Middleware\EnsureFrontendRequestsAreStateful;
 
 Route::get('/healthz', fn () => response()->json(['ok' => true, 'time' => now()]));
 
 /*
 |--------------------------------------------------------------------------
-| Token auth fallback (no cookies/CSRF required)
-|-------------------------------------------------------------------------- 
-| Uses AuthController::tokenLogin/tokenLogout which you already have.
-| Keep these OUTSIDE any auth group.
+| Token auth (NO cookies / NO CSRF)
+| Keep OUTSIDE any auth group and strip Sanctum's stateful middleware.
+|--------------------------------------------------------------------------
 */
-Route::post('/token-login',  [AuthController::class, 'tokenLogin']);   // public
-Route::post('/token-logout', [AuthController::class, 'tokenLogout'])->middleware('auth:sanctum');
+Route::post('/token-register', [AuthController::class, 'tokenRegister'])
+    ->withoutMiddleware([EnsureFrontendRequestsAreStateful::class])
+    ->middleware('throttle:6,1');
+
+Route::post('/token-login',  [AuthController::class, 'tokenLogin'])
+    ->withoutMiddleware([EnsureFrontendRequestsAreStateful::class])
+    ->middleware('throttle:6,1');
+
+Route::post('/token-logout', [AuthController::class, 'tokenLogout'])
+    ->withoutMiddleware([EnsureFrontendRequestsAreStateful::class])
+    ->middleware('auth:sanctum','throttle:12,1');
 
 /*
 |--------------------------------------------------------------------------
 | Public catalog
-|-------------------------------------------------------------------------- 
+|--------------------------------------------------------------------------
 */
 Route::get('/menu-items', [MenuItemController::class, 'index']);
 Route::get('/menu-items/{menuItem}', [MenuItemController::class, 'show'])->whereNumber('menuItem');
@@ -35,7 +44,7 @@ Route::get('/menu-items/{menuItem}/stock', [InventoryMovementController::class, 
 /*
 |--------------------------------------------------------------------------
 | Auth (Sanctum-protected; session cookie established via web.php)
-|-------------------------------------------------------------------------- 
+|--------------------------------------------------------------------------
 */
 Route::prefix('auth')->middleware('auth:sanctum')->group(function () {
     Route::get('/me', [AuthController::class, 'me']);
@@ -45,7 +54,7 @@ Route::prefix('auth')->middleware('auth:sanctum')->group(function () {
 /*
 |--------------------------------------------------------------------------
 | Authenticated API (Sanctum cookie session OR Bearer token)
-|-------------------------------------------------------------------------- 
+|--------------------------------------------------------------------------
 */
 Route::middleware('auth:sanctum')->group(function () {
 

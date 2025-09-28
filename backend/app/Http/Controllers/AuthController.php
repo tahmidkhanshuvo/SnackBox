@@ -22,6 +22,9 @@ class AuthController extends Controller
         return $user;
     }
 
+    /* =========================================================
+     | Cookie (web guard) registration — used by /register
+     ========================================================= */
     public function register(Request $request)
     {
         $data = $request->validate([
@@ -67,6 +70,9 @@ class AuthController extends Controller
         ], 201);
     }
 
+    /* =========================================================
+     | Cookie (web guard) login — used by /login
+     ========================================================= */
     public function login(Request $request)
     {
         $credentials = $request->validate([
@@ -103,6 +109,9 @@ class AuthController extends Controller
         ]);
     }
 
+    /* =========================================================
+     | Admin (session) login
+     ========================================================= */
     public function adminLogin(Request $request)
     {
         $credentials = $request->validate([
@@ -139,9 +148,12 @@ class AuthController extends Controller
         ]);
     }
 
+    /* =========================================================
+     | Me / Logout (work with cookie session OR token)
+     ========================================================= */
     public function me(Request $request)
     {
-        $user = $request->user(); // sanctum session → web guard
+        $user = $request->user(); // sanctum (token or session)
         if (!$user) {
             return response()->json(['message' => 'Unauthenticated'], 401);
         }
@@ -157,6 +169,10 @@ class AuthController extends Controller
         return response()->noContent();
     }
 
+    /* =========================================================
+     | TOKEN login (stateless) — used by POST /api/token-login
+     | Does NOT start a session; returns Sanctum PAT
+     ========================================================= */
     public function tokenLogin(Request $request)
     {
         $data = $request->validate([
@@ -164,13 +180,20 @@ class AuthController extends Controller
             'password' => ['required', 'string'],
         ]);
 
-        if (!Auth::guard('web')->attempt($data, remember: false)) {
+        $user = User::where('email', $data['email'])->first();
+
+        if (!$user || !Hash::check($data['password'], $user->password)) {
             throw ValidationException::withMessages([
                 'email' => ['Invalid credentials.'],
             ]);
         }
 
-        $user  = Auth::guard('web')->user();
+        if (strtolower($user->role ?? '') === 'pending') {
+            throw ValidationException::withMessages([
+                'email' => ['Your staff account is pending admin approval.'],
+            ]);
+        }
+
         $user  = $this->augmentUser($user);
         $token = $user->createToken('api')->plainTextToken;
 
@@ -186,6 +209,58 @@ class AuthController extends Controller
         return response()->noContent();
     }
 
+    /* =========================================================
+     | TOKEN register (stateless) — used by POST /api/token-register
+     | Staff → 202 pending, Customer → returns PAT + user
+     ========================================================= */
+    public function tokenRegister(Request $request)
+    {
+        $data = $request->validate([
+            'name'         => ['required', 'string', 'max:255'],
+            'email'        => ['required', 'email', 'max:255', 'unique:users,email'],
+            'password'     => ['required', 'confirmed', Password::min(8)],
+            'account_type' => ['required', 'string', Rule::in(['customer', 'staff'])],
+        ]);
+
+        $role = $data['account_type'] === 'staff' ? 'pending' : 'customer';
+
+        $user = User::create([
+            'name'     => $data['name'],
+            'email'    => $data['email'],
+            'password' => Hash::make($data['password']),
+            'role'     => $role,
+        ]);
+
+        if ($data['account_type'] === 'staff') {
+            $nameParts = explode(' ', $data['name'], 2);
+            Staff::create([
+                'user_id'    => $user->id,
+                'first_name' => $nameParts[0],
+                'last_name'  => $nameParts[1] ?? '',
+                'email'      => $user->email,
+                'is_active'  => false,
+            ]);
+
+            return response()->json([
+                'message' => 'Registration submitted. An admin must approve your account before you can sign in.',
+                'status'  => 'pending',
+            ], 202);
+        }
+
+        // Customer → issue token
+        $user  = $this->augmentUser($user);
+        $token = $user->createToken('api')->plainTextToken;
+
+        return response()->json([
+            'message' => 'Registered',
+            'token'   => $token,
+            'user'    => $user,
+        ], 201);
+    }
+
+    /* =========================================================
+     | Profile update
+     ========================================================= */
     public function updateMe(Request $request)
     {
         $user = $request->user();
