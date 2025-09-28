@@ -5,8 +5,11 @@ const isLocal =
   /localhost|127\.0\.0\.1/.test(window.location.hostname);
 
 const FORCE_REMOTE = (import.meta.env.VITE_FORCE_REMOTE ?? "false") === "true";
-const BASE_URL = isLocal ? (FORCE_REMOTE ? import.meta.env.VITE_API_URL : "") : (import.meta.env.VITE_API_URL || "");
-const WITH_CREDENTIALS = (import.meta.env.VITE_WITH_CREDENTIALS ?? "true") === "true";
+const BASE_URL = isLocal
+  ? (FORCE_REMOTE ? import.meta.env.VITE_API_URL : "")
+  : (import.meta.env.VITE_API_URL || "");
+const WITH_CREDENTIALS =
+  (import.meta.env.VITE_WITH_CREDENTIALS ?? "true") === "true";
 
 const apiClient = axios.create({
   baseURL: BASE_URL,
@@ -19,25 +22,31 @@ const apiClient = axios.create({
   xsrfHeaderName: "X-XSRF-TOKEN",
 });
 
-// ---- attach saved token on boot
+// ---- auth header helpers
 function setAuthToken(token) {
   if (!token) return;
   try { localStorage.setItem("token", token); } catch {}
   apiClient.defaults.headers.Authorization = `Bearer ${token}`;
 }
+function clearAuthToken() {
+  try { localStorage.removeItem("token"); } catch {}
+  delete apiClient.defaults.headers.Authorization;
+}
+// attach saved bearer on boot
 try {
   const saved = typeof window !== "undefined" ? localStorage.getItem("token") : null;
   if (saved) setAuthToken(saved);
 } catch {}
 
-// CSRF pre-warm
+// ---- CSRF pre-warm (skip when not using cookies)
 let csrfPromise = null;
 export async function ensureCsrf() {
+  if (!WITH_CREDENTIALS) return;
   if (!csrfPromise) csrfPromise = apiClient.get("/sanctum/csrf-cookie");
   try { await csrfPromise; } finally { csrfPromise = null; }
 }
 
-// Retry once on 419
+// Retry once on 419 for mutating requests
 apiClient.interceptors.response.use(
   (res) => res,
   async (error) => {
@@ -78,7 +87,7 @@ export async function tokenLogin(email, password) {
 export async function login(email, password, remember = false) {
   try {
     const { data } = await post("/login", { email, password, remember });
-    return data;                     // cookie path (if browser allows)
+    return data;                     // cookie path (if allowed)
   } catch (e) {
     const s = e?.response?.status;
     if ([419, 401, 400].includes(s)) {
@@ -105,16 +114,29 @@ export async function register(payload) {
 }
 
 export async function logout() {
+  // session (cookie) logout
   try { await post("/logout"); } catch {}
+  // token logout
+  try { await apiClient.post("/api/token-logout"); } catch {}
+  // clear local bearer regardless
+  clearAuthToken();
 }
 
-/* ================== Admin (unchanged) ================== */
+/* ================== Admin ================== */
 export async function adminLogin(email, password) {
   const { data } = await post("/admin/login", { email, password });
   return data;
 }
+export async function getPendingUsers() {
+  const { data } = await apiClient.get("/api/admin/pending-users");
+  return Array.isArray(data) ? data : (data?.data ?? []);
+}
+export async function approveUser(userId) {
+  const { data } = await post(`/api/admin/approve-user/${userId}`);
+  return data;
+}
 
-/* ================== Menu / Orders (unchanged) ================== */
+/* ================== Menu / Orders ================== */
 export async function listMenuItems(params = {}) {
   const { data } = await apiClient.get("/api/menu-items", { params });
   const items = Array.isArray(data) ? data : (data?.data ?? []);

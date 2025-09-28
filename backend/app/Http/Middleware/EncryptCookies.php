@@ -7,6 +7,6 @@ use Illuminate\Cookie\Middleware\EncryptCookies as Middleware;
 class EncryptCookies extends Middleware
 {
     protected $except = [
-        'XSRF-TOKEN',
+        'XSRF-TOKEN', // let axios read it for X-XSRF-TOKEN header
     ];
 }

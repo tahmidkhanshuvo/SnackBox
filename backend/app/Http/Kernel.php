@@ -6,10 +6,10 @@ use Illuminate\Foundation\Http\Kernel as HttpKernel;
 
 class Kernel extends HttpKernel
 {
-    // Global middleware (runs for every request)
+    // Global middleware (every request)
     protected $middleware = [
         \App\Http\Middleware\TrustProxies::class,
-        \Illuminate\Http\Middleware\HandleCors::class, // CORS must be global so OPTIONS never 404s
+        \Illuminate\Http\Middleware\HandleCors::class, // CORS global so OPTIONS never 404s
         \App\Http\Middleware\PreventRequestsDuringMaintenance::class,
         \Illuminate\Foundation\Http\Middleware\ValidatePostSize::class,
         \App\Http\Middleware\TrimStrings::class,
@@ -29,7 +29,7 @@ class Kernel extends HttpKernel
         ],
 
         'api' => [
-            // 🔸 Makes Sanctum treat FE domain as stateful → reads session cookie on /api/*
+            // Make Sanctum treat FE domain as stateful → reads session cookie on /api/*
             \Laravel\Sanctum\Http\Middleware\EnsureFrontendRequestsAreStateful::class,
             'throttle:api',
             \Illuminate\Routing\Middleware\SubstituteBindings::class,
@@ -49,7 +49,7 @@ class Kernel extends HttpKernel
         'throttle'         => \Illuminate\Routing\Middleware\ThrottleRequests::class,
         'verified'         => \Illuminate\Auth\Middleware\EnsureEmailIsVerified::class,
 
-        // your custom one:
+        // custom
         'admin.only'       => \App\Http\Middleware\AdminOnly::class,
     ];
 }
