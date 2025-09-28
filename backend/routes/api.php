@@ -1,6 +1,5 @@
 <?php
 
-use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\MenuItemController;
@@ -25,22 +24,13 @@ Route::get('/menu-items/{menuItem}/stock', [InventoryMovementController::class, 
 
 /*
 |--------------------------------------------------------------------------
-| Auth
+| Auth (Sanctum-protected; session cookie established via web.php)
 |--------------------------------------------------------------------------
 */
-Route::prefix('auth')->group(function () {
-    Route::post('/register', [AuthController::class, 'register'])->middleware('throttle:6,1');
-    Route::post('/login', [AuthController::class, 'login'])->middleware('throttle:6,1');
-
-    Route::middleware('auth:sanctum')->group(function () {
-        Route::get('/me', [AuthController::class, 'me']);
-        Route::patch('/me', [AuthController::class, 'updateMe']);
-        Route::post('/logout', [AuthController::class, 'logout']);
-    });
+Route::prefix('auth')->middleware('auth:sanctum')->group(function () {
+    Route::get('/me', [AuthController::class, 'me']);
+    Route::patch('/me', [AuthController::class, 'updateMe']);
 });
-
-// Admin login endpoint lives under /api/admin/login (cookie session via Sanctum)
-Route::post('/admin/login', [AuthController::class, 'adminLogin'])->middleware('throttle:6,1');
 
 /*
 |--------------------------------------------------------------------------
@@ -88,7 +78,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::patch('/complaints/{complaint}/resolve', [ComplaintController::class, 'resolve'])->whereNumber('complaint');
     Route::patch('/complaints/{complaint}/reply', [ComplaintController::class, 'reply'])->whereNumber('complaint');
 
-    // ---- Orders (you said these were required)
+    // ---- Orders
     Route::get('/orders', [OrderController::class, 'index']);
     Route::post('/orders', [OrderController::class, 'store']);
     Route::get('/orders/{order}', [OrderController::class, 'show'])->whereNumber('order');
@@ -99,9 +89,9 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::patch('/orders/{order}', [OrderController::class, 'updateStatus'])->whereNumber('order');
 
     /*
-    |----------------------------------------------------------------------
-    | Admin area (admin.only alias; no Kernel.php needed)
-    |----------------------------------------------------------------------
+    |--------------------------------------------------------------------------
+    | Admin area (custom middleware)
+    |--------------------------------------------------------------------------
     */
     Route::prefix('admin')->middleware('admin.only')->group(function () {
         Route::get('/pending-users', [AdminController::class, 'pendingUsers']);

@@ -16,7 +16,7 @@ return new class extends Migration
                   ->constrained('users')
                   ->nullOnDelete();
 
-            // NEW: link staff to an optional shift (ERD)
+            // Optional: link staff to a default/last shift (per ERD)
             $table->foreignId('shift_id')
                   ->nullable()
                   ->constrained('shifts')
@@ -28,7 +28,9 @@ return new class extends Migration
             $table->string('phone')->nullable()->index();
             $table->string('position')->nullable();   // cashier, cook, manager, etc.
             $table->date('hired_at')->nullable();
-            $table->boolean('is_active')->default(true);
+
+            // New registrations start as pending until approved
+            $table->boolean('is_active')->default(false);
 
             $table->timestamps();
 

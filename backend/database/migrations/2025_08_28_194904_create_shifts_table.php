@@ -10,10 +10,16 @@ class CreateShiftsTable extends Migration
     {
         Schema::create('shifts', function (Blueprint $table) {
             $table->id();
-            $table->string('name', 100)->unique(); // e.g., "Morning", "Evening", "Night"
-            $table->time('starts_at');            // time string "08:00:00"
-            $table->time('ends_at');              // time string "16:00:00"
-            $table->boolean('is_active')->default(true);
+
+            // e.g., "Morning", "Evening", "Night"
+            $table->string('name', 100)->unique();
+
+            // Stored as TIME; app exposes "HH:MM:SS"
+            $table->time('starts_at');
+            $table->time('ends_at');
+
+            $table->boolean('is_active')->default(true)->index();
+
             $table->timestamps();
         });
     }

@@ -5,7 +5,6 @@ namespace App\Http\Controllers;
 use App\Models\MenuItem;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
-use Illuminate\Validation\Rule;
 use App\Http\Resources\MenuItemResource;
 
 class MenuItemController extends Controller
@@ -21,7 +20,10 @@ class MenuItemController extends Controller
         $avail    = $request->input('availability', null);
         $sortBy   = $request->input('sortBy', 'item_name');
         $sortDir  = strtolower($request->input('sortDir', 'asc')) === 'desc' ? 'desc' : 'asc';
-        $perPage  = (int) ($request->input('per_page', 10));
+
+        // Cap per_page to 1..100
+        $perRaw   = $request->input('per_page', 10);
+        $perPage  = is_numeric($perRaw) ? max(1, min(100, (int) $perRaw)) : 10;
 
         $query = MenuItem::query();
 
@@ -43,8 +45,8 @@ class MenuItemController extends Controller
             }
         }
 
-        // only allow sorting by known columns
-        if (!in_array($sortBy, ['item_name','price','category','availability','created_at'], true)) {
+        // Only allow sorting by known columns
+        if (!in_array($sortBy, ['item_name', 'price', 'category', 'availability', 'created_at'], true)) {
             $sortBy = 'item_name';
         }
 
@@ -69,19 +71,19 @@ class MenuItemController extends Controller
     public function store(Request $request)
     {
         $data = $request->validate([
-            'item_name'    => ['required','string','max:255'],
-            'price'        => ['required','numeric','min:0'],
-            'category'     => ['nullable','string','max:255'],
-            'availability' => ['nullable','boolean'],
-            'image'        => ['sometimes','file','image','mimes:jpg,jpeg,png,webp','max:2048'],
-            'image_alt'    => ['nullable','string','max:255'],
+            'item_name'    => ['required', 'string', 'max:255'],
+            'price'        => ['required', 'numeric', 'min:0'],
+            'category'     => ['nullable', 'string', 'max:255'],
+            'availability' => ['nullable', 'boolean'],
+            'image'        => ['sometimes', 'file', 'image', 'mimes:jpg,jpeg,png,webp', 'max:2048'],
+            'image_alt'    => ['nullable', 'string', 'max:255'],
         ]);
 
         $menuItem = MenuItem::create([
             'item_name'    => $data['item_name'],
             'price'        => $data['price'],
             'category'     => $data['category'] ?? null,
-            'availability' => array_key_exists('availability', $data) ? (bool)$data['availability'] : true,
+            'availability' => array_key_exists('availability', $data) ? (bool) $data['availability'] : true,
             'image_path'   => null,
             'image_alt'    => $data['image_alt'] ?? null,
         ]);
@@ -100,17 +102,17 @@ class MenuItemController extends Controller
     public function update(Request $request, MenuItem $menuItem)
     {
         $data = $request->validate([
-            'item_name'    => ['sometimes','string','max:255'],
-            'price'        => ['sometimes','numeric','min:0'],
-            'category'     => ['sometimes','nullable','string','max:255'],
-            'availability' => ['sometimes','boolean'],
-            'image'        => ['sometimes','file','image','mimes:jpg,jpeg,png,webp','max:2048'],
-            'image_alt'    => ['sometimes','nullable','string','max:255'],
+            'item_name'    => ['sometimes', 'string', 'max:255'],
+            'price'        => ['sometimes', 'numeric', 'min:0'],
+            'category'     => ['sometimes', 'nullable', 'string', 'max:255'],
+            'availability' => ['sometimes', 'boolean'],
+            'image'        => ['sometimes', 'file', 'image', 'mimes:jpg,jpeg,png,webp', 'max:2048'],
+            'image_alt'    => ['sometimes', 'nullable', 'string', 'max:255'],
         ]);
 
         $menuItem->fill($data);
         if (array_key_exists('availability', $data)) {
-            $menuItem->availability = (bool)$data['availability'];
+            $menuItem->availability = (bool) $data['availability'];
         }
         $menuItem->save();
 
@@ -127,8 +129,8 @@ class MenuItemController extends Controller
     public function uploadImage(Request $request, MenuItem $menuItem)
     {
         $request->validate([
-            'image'     => ['required','file','image','mimes:jpg,jpeg,png,webp','max:2048'],
-            'image_alt' => ['nullable','string','max:255'],
+            'image'     => ['required', 'file', 'image', 'mimes:jpg,jpeg,png,webp', 'max:2048'],
+            'image_alt' => ['nullable', 'string', 'max:255'],
         ]);
 
         $this->storeImage($request, $menuItem);
@@ -160,9 +162,11 @@ class MenuItemController extends Controller
     {
         $file = $request->file('image');
         $path = $file->store('menu_items', 'public');
+
         if ($menuItem->image_path) {
             Storage::disk('public')->delete($menuItem->image_path);
         }
+
         $menuItem->image_path = $path;
         $menuItem->save();
     }

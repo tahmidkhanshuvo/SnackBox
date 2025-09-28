@@ -1,6 +1,6 @@
 // src/pages/Login.jsx
 import React, { useState, useEffect } from "react";
-import { login as apiLogin, register as apiRegister, getMe } from "../api/api";
+import { login as apiLogin, register as apiRegister, getMe, ensureCsrf } from "../api/api";
 
 /* ----------------------- STYLES ----------------------- */
 const AppStyles = () => (
@@ -122,6 +122,21 @@ const LoginForm = ({ onLoginSuccess }) => {
   const [loading, setLoading] = useState(false);
   const [info, setInfo] = useState(null); // for staff pending message
 
+  // Pre-warm CSRF cookie and auto-resume session if already logged in
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      try {
+        await ensureCsrf();
+        const me = await getMe();
+        if (mounted && me) onLoginSuccess?.(me);
+      } catch {
+        // ignore preboot errors; interactive flow will still handle CSRF
+      }
+    })();
+    return () => { mounted = false; };
+  }, [onLoginSuccess]);
+
   const handleInputChange = (e) => setFormData((s) => ({ ...s, [e.target.name]: e.target.value }));
   const togglePasswordVisibility = () => setShowPassword((s) => !s);
 
@@ -134,7 +149,7 @@ const LoginForm = ({ onLoginSuccess }) => {
 
     try {
       if (isLogin) {
-        await apiLogin(formData.email, formData.password, remember);
+        await apiLogin(formData.email, formData.password, Boolean(remember));
       } else {
         const payload = {
           name: formData.name,
@@ -162,7 +177,6 @@ const LoginForm = ({ onLoginSuccess }) => {
         throw new Error("Could not verify session after authentication.");
       }
 
-      // Bubble up (App.jsx decides where to route)
       onLoginSuccess?.(me);
     } catch (err) {
       const validationErrors = err?.response?.data?.errors;
@@ -301,7 +315,7 @@ const LoginForm = ({ onLoginSuccess }) => {
           </div>
         )}
 
-        <button className="button-submit" disabled={loading}>
+        <button className="button-submit" type="submit" disabled={loading}>
           {loading ? "Processing…" : isLogin ? "Sign In" : "Sign Up"}
         </button>
       </form>

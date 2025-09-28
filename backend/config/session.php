@@ -2,85 +2,46 @@
 
 use Illuminate\Support\Str;
 
+$inProd = env('APP_ENV') === 'production';
+$secureDefault = $inProd ? true : false;
+$sameSite = env('SESSION_SAME_SITE', $inProd ? 'none' : 'lax');
+
 return [
 
-    /*
-    |--------------------------------------------------------------------------
-    | Default Session Driver
-    |--------------------------------------------------------------------------
-    | Keep env-driven. For local, we’ll use "cookie" via .env.
-    */
+    // Use cookie driver for SPA auth
     'driver' => env('SESSION_DRIVER', 'cookie'),
 
-    /*
-    |--------------------------------------------------------------------------
-    | Session Lifetime
-    |--------------------------------------------------------------------------
-    */
     'lifetime' => (int) env('SESSION_LIFETIME', 120),
-    'expire_on_close' => env('SESSION_EXPIRE_ON_CLOSE', false),
+    'expire_on_close' => (bool) env('SESSION_EXPIRE_ON_CLOSE', false),
 
-    /*
-    |--------------------------------------------------------------------------
-    | Session Encryption
-    |--------------------------------------------------------------------------
-    */
-    'encrypt' => env('SESSION_ENCRYPT', false),
+    // Encrypt session payloads when using the cookie driver (recommended in prod)
+    'encrypt' => (bool) env('SESSION_ENCRYPT', $inProd ? true : false),
 
-    /*
-    |--------------------------------------------------------------------------
-    | File / DB / Cache (not used for cookie driver)
-    |--------------------------------------------------------------------------
-    */
+    // Not used for cookie driver but kept for flexibility
     'files' => storage_path('framework/sessions'),
     'connection' => env('SESSION_CONNECTION'),
     'table' => env('SESSION_TABLE', 'sessions'),
     'store' => env('SESSION_STORE'),
     'lottery' => [2, 100],
 
-    /*
-    |--------------------------------------------------------------------------
-    | Session Cookie Name (ONE consistent name!)
-    |--------------------------------------------------------------------------
-    */
+    // One consistent cookie name
     'cookie' => env('SESSION_COOKIE', 'snackbox_session'),
 
-    /*
-    |--------------------------------------------------------------------------
-    | Cookie Path / Domain
-    |--------------------------------------------------------------------------
-    */
+    // Scope & domain
     'path' => env('SESSION_PATH', '/'),
-    'domain' => env('SESSION_DOMAIN', null), // e.g. snackbox.test
+    'domain' => env('SESSION_DOMAIN', null), // e.g. .onrender.com in prod
 
-    /*
-    |--------------------------------------------------------------------------
-    | HTTPS Only Cookies
-    |--------------------------------------------------------------------------
-    | Local is HTTP: false. In prod (HTTPS), set true.
-    */
-    'secure' => filter_var(env('SESSION_SECURE_COOKIE', false), FILTER_VALIDATE_BOOL),
+    // Cookies must be Secure when SameSite=None
+    'secure' => filter_var(env('SESSION_SECURE_COOKIE', $secureDefault), FILTER_VALIDATE_BOOL),
 
-    /*
-    |--------------------------------------------------------------------------
-    | HTTP Access Only
-    |--------------------------------------------------------------------------
-    */
-    'http_only' => env('SESSION_HTTP_ONLY', true),
+    'http_only' => (bool) env('SESSION_HTTP_ONLY', true),
 
-    /*
-    |--------------------------------------------------------------------------
-    | Same-Site Cookies
-    |--------------------------------------------------------------------------
-    | "lax" works best for SPA + Postman on same origin.
-    */
-    'same_site' => env('SESSION_SAME_SITE', 'lax'),
+    // Cross-site SPA needs 'none' in prod, 'lax' is fine locally
+    'same_site' => $sameSite,
 
-    /*
-    |--------------------------------------------------------------------------
-    | Partitioned Cookies
-    |--------------------------------------------------------------------------
-    */
-    'partitioned' => env('SESSION_PARTITIONED_COOKIE', false),
-
+    // Modern browsers prefer partitioned cookies for cross-site use
+    'partitioned' => filter_var(
+        env('SESSION_PARTITIONED_COOKIE', $sameSite === 'none'),
+        FILTER_VALIDATE_BOOL
+    ),
 ];

@@ -9,9 +9,10 @@ class Staff extends Model
 {
     use HasFactory;
 
-    // IMPORTANT: our table name is 'staff' (not the default 'staffs')
+    /** Our table is singular 'staff' (not the default plural). */
     protected $table = 'staff';
 
+    /** Mass-assignable columns. */
     protected $fillable = [
         'user_id',
         'first_name',
@@ -24,13 +25,18 @@ class Staff extends Model
         'shift_id',
     ];
 
+    /** Casts. */
     protected $casts = [
         'hired_at'  => 'date',
         'is_active' => 'boolean',
         'shift_id'  => 'integer',
     ];
 
-    /* Relationships */
+    /** Computed attributes to include in API responses. */
+    protected $appends = ['full_name'];
+
+    /* ---------------- Relationships ---------------- */
+
     public function user()
     {
         return $this->belongsTo(User::class);
@@ -57,7 +63,8 @@ class Staff extends Model
         return $this->hasMany(StaffShift::class);
     }
 
-    /* Helpers */
+    /* ---------------- Helpers / Scopes ---------------- */
+
     public function getFullNameAttribute(): string
     {
         return trim(($this->first_name ?? '') . ' ' . ($this->last_name ?? ''));

@@ -1,33 +1,37 @@
 <?php
 
-// Build origins list safely from CSV env; ignore null/empties/extra spaces.
+// Build allowed origins list from CSV env (e.g. CORS_ALLOWED_ORIGINS="https://snackbox-frontend.onrender.com,http://localhost:5173")
 $origins = array_values(array_filter(array_map(
     'trim',
     explode(',', (string) env('CORS_ALLOWED_ORIGINS', ''))
 )));
 
-// Fallback for production if no env is provided
+// Safe fallback in production if env not set
 if (empty($origins) && env('APP_ENV') === 'production') {
     $origins = ['https://snackbox-frontend.onrender.com'];
 }
 
 return [
 
-    // Allow API routes + Sanctum endpoints used by SPA auth
-    'paths' => ['api/*', 'sanctum/csrf-cookie', 'login', 'logout'],
+    // Apply CORS to API + Sanctum + web auth endpoints used by the SPA
+    'paths' => [
+        'api/*',
+        'sanctum/csrf-cookie',
+        'login', 'logout', 'register',
+        'admin/login',
+        // Optional, but helpful:
+        'broadcasting/auth',
+        'healthz',
+    ],
 
     'allowed_methods' => ['*'],
-
-    // Use our computed list (env or fallback)
     'allowed_origins' => $origins,
-
-    // Leave patterns empty unless you truly need wildcards/regex
     'allowed_origins_patterns' => [],
-
     'allowed_headers' => ['*'],
     'exposed_headers' => [],
-    'max_age' => 0,
+    // cache preflight responses for 1 hour
+    'max_age' => 3600,
 
-    // Required for cookie-based auth (Sanctum SPA)
+    // Required for Sanctum cookie-based SPA auth
     'supports_credentials' => true,
 ];

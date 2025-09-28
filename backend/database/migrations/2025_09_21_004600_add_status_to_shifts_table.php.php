@@ -9,14 +9,20 @@ class AddStatusToShiftsTable extends Migration
     public function up()
     {
         Schema::table('shifts', function (Blueprint $table) {
-            $table->string('status')->nullable()->after('is_active')->default('active');
+            // Keep after is_active as you intended; index for quick admin filtering
+            if (!Schema::hasColumn('shifts', 'status')) {
+                $table->string('status')->default('active')->after('is_active')->index();
+            }
         });
     }
 
     public function down()
     {
         Schema::table('shifts', function (Blueprint $table) {
-            $table->dropColumn('status');
+            if (Schema::hasColumn('shifts', 'status')) {
+                $table->dropIndex(['status']);
+                $table->dropColumn('status');
+            }
         });
     }
 }

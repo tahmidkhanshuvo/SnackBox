@@ -15,8 +15,8 @@ class ShiftController extends Controller
      */
     public function index(Request $request)
     {
-        $q = $request->string('q')->toString();
-        $active = $request->input('active', null);
+        $q       = $request->string('q')->toString();
+        $active  = $request->input('active', null);
         $perPage = (int) $request->input('per_page', 15);
 
         $query = Shift::query();
@@ -41,10 +41,10 @@ class ShiftController extends Controller
     public function store(Request $request)
     {
         $data = $request->validate([
-            'name' => ['required', 'string', 'max:100', 'unique:shifts,name'],
-            'starts_at' => ['required', 'date_format:H:i:s'],
-            'ends_at' => ['required', 'date_format:H:i:s'],
-            'is_active' => ['sometimes', 'boolean'],
+            'name'      => ['required','string','max:100','unique:shifts,name'],
+            'starts_at' => ['required','date_format:H:i:s'],
+            'ends_at'   => ['required','date_format:H:i:s'],
+            'is_active' => ['sometimes','boolean'],
         ]);
 
         $shift = Shift::create($data + ['is_active' => $data['is_active'] ?? true]);
@@ -66,10 +66,10 @@ class ShiftController extends Controller
     public function update(Request $request, Shift $shift)
     {
         $data = $request->validate([
-            'name' => ['sometimes', 'required', 'string', 'max:100', Rule::unique('shifts', 'name')->ignore($shift->id)],
-            'starts_at' => ['sometimes', 'required', 'date_format:H:i:s'],
-            'ends_at' => ['sometimes', 'required', 'date_format:H:i:s'],
-            'is_active' => ['sometimes', 'boolean'],
+            'name'      => ['sometimes','required','string','max:100', Rule::unique('shifts','name')->ignore($shift->id)],
+            'starts_at' => ['sometimes','required','date_format:H:i:s'],
+            'ends_at'   => ['sometimes','required','date_format:H:i:s'],
+            'is_active' => ['sometimes','boolean'],
         ]);
 
         $shift->fill($data)->save();
@@ -82,146 +82,126 @@ class ShiftController extends Controller
      */
     public function toggleActive(Shift $shift)
     {
-        $shift->is_active = !$shift->is_active;
+        $shift->is_active = ! $shift->is_active;
         $shift->save();
 
         return response()->json(['id' => $shift->id, 'is_active' => $shift->is_active]);
     }
 
-    /**
-     * PATCH /api/shifts/{shift}/mark-late
-     */
-    public function markLate(Request $request, $shift)
-    {
-        $staffId = $request->user()->staff_id ?? $request->user()->staff->id;
-        if (!$request->user()) {
-            return response()->json(['message' => 'Unauthorized'], 403);
-        }
-
-        $date = $request->input('date');
-        if (!$date) {
-            return response()->json(['message' => 'Date is required'], 400);
-        }
-
-        Log::info("Marking late: staff_id={$staffId}, staff_shift_id={$shift}, date={$date}");
-
-        $staffShift = StaffShift::where('id', $shift)
-            ->where('staff_id', $staffId)
-            ->where('date', $date)
-            ->first();
-
-        if (!$staffShift) {
-            Log::warning("No StaffShift found for id={$shift}, staff_id={$staffId}, date={$date}");
-            return response()->json(['message' => 'No assignment found for this shift and date'], 404);
-        }
-
-        $staffShift->update(['status' => 'late']);
-        return response()->json(['message' => 'Shift marked as late']);
-    }
+    /* ---------------------------------------------------------
+       Attendance actions below operate on StaffShift ID only
+       Route: PATCH /api/shifts/{shiftShiftId}/<action>
+       --------------------------------------------------------- */
 
     /**
-     * PATCH /api/shifts/{shift}/mark-absent
+     * PATCH /api/shifts/{staffShift}/accept
      */
-    public function markAbsent(Request $request, $shift)
+    public function accept(Request $request, $staffShift)
     {
-        $staffId = $request->user()->staff_id ?? $request->user()->staff->id;
-        if (!$request->user()) {
-            return response()->json(['message' => 'Unauthorized'], 403);
+        $user = $request->user();
+        if (! $user) return response()->json(['message' => 'Unauthorized'], 401);
+
+        $staffId = $user->staff->id ?? null;
+        if (! $staffId) return response()->json(['message' => 'Only staff can accept shifts'], 403);
+
+        $ss = StaffShift::find($staffShift);
+        if (! $ss || $ss->staff_id !== $staffId) {
+            return response()->json(['message' => 'No assignment found for this shift'], 404);
         }
 
-        $date = $request->input('date');
-        if (!$date) {
-            return response()->json(['message' => 'Date is required'], 400);
-        }
-
-        Log::info("Marking absent: staff_id={$staffId}, staff_shift_id={$shift}, date={$date}");
-
-        $staffShift = StaffShift::where('id', $shift)
-            ->where('staff_id', $staffId)
-            ->where('date', $date)
-            ->first();
-
-        if (!$staffShift) {
-            Log::warning("No StaffShift found for id={$shift}, staff_id={$staffId}, date={$date}");
-            return response()->json(['message' => 'No assignment found for this shift and date'], 404);
-        }
-
-        $staffShift->update(['status' => 'absent']);
-        return response()->json(['message' => 'Shift marked as absent']);
-    }
-
-    /**
-     * PATCH /api/shifts/{shift}/accept
-     */
-    public function accept(Request $request, $shift)
-    {
-        $staffId = $request->user()->staff_id ?? $request->user()->staff->id;
-        if (!$request->user()) {
-            return response()->json(['message' => 'Unauthorized'], 403);
-        }
-
-        $date = $request->input('date');
-        if (!$date) {
-            return response()->json(['message' => 'Date is required'], 400);
-        }
-
-        Log::info("Accepting shift: staff_id={$staffId}, staff_shift_id={$shift}, date={$date}");
-
-        $staffShift = StaffShift::where('id', $shift)
-            ->where('staff_id', $staffId)
-            ->where('date', $date)
-            ->first();
-
-        if (!$staffShift) {
-            Log::warning("No StaffShift found for id={$shift}, staff_id={$staffId}, date={$date}");
-            return response()->json(['message' => 'No assignment found for this shift and date'], 404);
-        }
-
-        if ($staffShift->status !== 'assigned') {
+        if ($ss->status !== 'assigned') {
             return response()->json(['message' => 'Shift can only be accepted if assigned'], 400);
         }
 
-        $staffShift->update(['status' => 'accepted']);
-        Log::info("Shift accepted: staffShift={$staffShift->id}, new_status=accepted");
+        $ss->update(['status' => 'accepted']);
+        Log::info("Shift accepted", ['staff_shift_id' => $ss->id, 'staff_id' => $staffId]);
 
         return response()->json(['message' => 'Shift accepted successfully']);
     }
 
     /**
-     * PATCH /api/shifts/{shift}/request-change
+     * PATCH /api/shifts/{staffShift}/mark-late
      */
-    public function requestChange(Request $request, $shift)
+    public function markLate(Request $request, $staffShift)
     {
-        $staffId = $request->user()->staff_id ?? $request->user()->staff->id;
-        if (!$request->user()) {
-            return response()->json(['message' => 'Unauthorized'], 403);
+        $user = $request->user();
+        if (! $user) return response()->json(['message' => 'Unauthorized'], 401);
+
+        $staffId = $user->staff->id ?? null;
+        if (! $staffId) return response()->json(['message' => 'Only staff can update attendance'], 403);
+
+        $ss = StaffShift::find($staffShift);
+        if (! $ss || $ss->staff_id !== $staffId) {
+            return response()->json(['message' => 'No assignment found for this shift'], 404);
         }
 
-        $date = $request->input('date');
-        $reason = $request->input('reason');
-        if (!$date || !$reason) {
-            return response()->json(['message' => 'Date and reason are required'], 400);
+        if ($ss->status !== 'accepted') {
+            return response()->json(['message' => 'Can mark late only from accepted status'], 400);
         }
 
-        Log::info("Requesting change: staff_id={$staffId}, staff_shift_id={$shift}, date={$date}, reason={$reason}");
+        $ss->update(['status' => 'late']);
+        Log::info("Shift marked late", ['staff_shift_id' => $ss->id, 'staff_id' => $staffId]);
 
-        $staffShift = StaffShift::where('id', $shift)
-            ->where('staff_id', $staffId)
-            ->where('date', $date)
-            ->first();
+        return response()->json(['message' => 'Shift marked as late']);
+    }
 
-        if (!$staffShift) {
-            Log::warning("No StaffShift found for id={$shift}, staff_id={$staffId}, date={$date}");
-            return response()->json(['message' => 'No assignment found for this shift and date'], 404);
+    /**
+     * PATCH /api/shifts/{staffShift}/mark-absent
+     */
+    public function markAbsent(Request $request, $staffShift)
+    {
+        $user = $request->user();
+        if (! $user) return response()->json(['message' => 'Unauthorized'], 401);
+
+        $staffId = $user->staff->id ?? null;
+        if (! $staffId) return response()->json(['message' => 'Only staff can update attendance'], 403);
+
+        $ss = StaffShift::find($staffShift);
+        if (! $ss || $ss->staff_id !== $staffId) {
+            return response()->json(['message' => 'No assignment found for this shift'], 404);
         }
 
-        if (!in_array($staffShift->status, ['assigned', 'accepted'])) {
+        if ($ss->status !== 'accepted') {
+            return response()->json(['message' => 'Can mark absent only from accepted status'], 400);
+        }
+
+        $ss->update(['status' => 'absent']);
+        Log::info("Shift marked absent", ['staff_shift_id' => $ss->id, 'staff_id' => $staffId]);
+
+        return response()->json(['message' => 'Shift marked as absent']);
+    }
+
+    /**
+     * PATCH /api/shifts/{staffShift}/request-change
+     * Body: { reason?: string }   (reason is logged for now)
+     */
+    public function requestChange(Request $request, $staffShift)
+    {
+        $user = $request->user();
+        if (! $user) return response()->json(['message' => 'Unauthorized'], 401);
+
+        $staffId = $user->staff->id ?? null;
+        if (! $staffId) return response()->json(['message' => 'Only staff can request changes'], 403);
+
+        $ss = StaffShift::find($staffShift);
+        if (! $ss || $ss->staff_id !== $staffId) {
+            return response()->json(['message' => 'No assignment found for this shift'], 404);
+        }
+
+        if (! in_array($ss->status, ['assigned','accepted'], true)) {
             return response()->json(['message' => 'Shift can only be changed if assigned or accepted'], 400);
         }
 
-        $staffShift->update(['status' => 'requested_change', 'change_reason' => $reason]);
-        Log::info("Change requested: staffShift={$staffShift->id}, new_status=requested_change, reason={$reason}");
+        $reason = trim((string) $request->input('reason', ''));
+        if ($reason !== '') {
+            Log::info("Shift change requested", [
+                'staff_shift_id' => $ss->id,
+                'staff_id'       => $staffId,
+                'reason'         => $reason
+            ]);
+        }
 
+        $ss->update(['status' => 'requested_change']);
         return response()->json(['message' => 'Change request submitted successfully']);
     }
 }

@@ -148,6 +148,12 @@ export function CartProvider({ children }) {
    * If your controller expects a different payload, tell me and I’ll adjust.
    */
   const checkout = async ({ order_note = "" } = {}) => {
+    if (!lines.length) {
+      const err = new Error("Your cart is empty.");
+      err.code = "CART_EMPTY";
+      throw err;
+    }
+
     const items = lines.map((l) => ({
       menu_item_id: l.id,
       quantity: clampQty(l.qty),
@@ -160,9 +166,19 @@ export function CartProvider({ children }) {
 
     const payload = { items, note: order_note };
 
-    await ensureCsrf();
-    const { data } = await apiClient.post("/api/orders", payload);
-    return data;
+    try {
+      await ensureCsrf();
+      const { data } = await apiClient.post("/api/orders", payload);
+      return data;
+    } catch (e) {
+      const status = e?.response?.status;
+      if (status === 401) {
+        const err = new Error("Please sign in to place your order.");
+        err.code = "UNAUTHENTICATED";
+        throw err;
+      }
+      throw e;
+    }
   };
 
   const value = {

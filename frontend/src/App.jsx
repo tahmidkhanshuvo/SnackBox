@@ -1,7 +1,7 @@
 // src/App.jsx
 import React, { useEffect, useRef, useState } from "react";
 import { BrowserRouter } from "react-router-dom";
-import apiClient, { getMe } from "./api/api";
+import apiClient, { getMe, logout as apiLogout } from "./api/api";
 import LoginPage from "./pages/Login";
 import Home from "./pages/customer/Home";
 import Product from "./pages/customer/Product";
@@ -306,16 +306,12 @@ export default function App() {
 
   const handleLogout = async () => {
     try {
-      // Try API logout first; fall back if not present
-      try {
-        await apiClient.post("/api/auth/logout");
-      } catch (e) {
-        if (e?.response?.status !== 404) throw e;
-        await apiClient.post("/auth/logout");
-      }
+      // Primary: web route /logout (Sanctum SPA)
+      await apiLogout();
+
+      // If you ever used tokenLogin(), clear token + header
       const token = localStorage.getItem("token");
       if (token) {
-        try { await apiClient.post("/api/auth/token/logout"); } catch {}
         localStorage.removeItem("token");
         delete apiClient.defaults.headers.Authorization;
       }
@@ -323,8 +319,10 @@ export default function App() {
       console.error("Logout error:", err);
     }
     setUser(null);
+
     // Default to customer/staff login after logout
-    goto("/login");
+    const p = getPath();
+    goto(p.startsWith("/admin") ? "/admin/login" : "/login");
     setToastMsg("Signed out successfully.");
   };
 

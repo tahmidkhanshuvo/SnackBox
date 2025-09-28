@@ -11,17 +11,41 @@ class MenuItem extends Model
 {
     use HasFactory;
 
-    // UPDATED: Added 'price' to the fillable attributes
-    protected $fillable = ['item_name', 'category', 'price', 'availability', 'image_path', 'image_alt'];
+    /**
+     * Mass-assignable fields.
+     */
+    protected $fillable = [
+        'item_name',
+        'category',
+        'price',
+        'availability',
+        'image_path',
+        'image_alt',
+        // 'description', // add here if/when you add it to the table
+    ];
 
-    // expose computed fields
+    /**
+     * Default attributes (new items are available by default).
+     */
+    protected $attributes = [
+        'availability' => true,
+    ];
+
+    /**
+     * Include computed props in API responses.
+     */
     protected $appends = ['stock', 'image_url'];
-    
-    // NEW: Cast the price to a decimal with 2 places
+
+    /**
+     * Casts.
+     * Note: 'decimal:2' returns strings in JSON to preserve precision (OK for display).
+     */
     protected $casts = [
-        'price' => 'decimal:2',
+        'price'        => 'decimal:2',
         'availability' => 'boolean',
     ];
+
+    /* -------------------- Relationships -------------------- */
 
     public function orderItems()
     {
@@ -32,6 +56,8 @@ class MenuItem extends Model
     {
         return $this->hasMany(InventoryMovement::class);
     }
+
+    /* -------------------- Accessors -------------------- */
 
     // Current stock = SUM of ledger deltas
     public function stock(): Attribute

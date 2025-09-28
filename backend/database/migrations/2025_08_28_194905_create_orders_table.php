@@ -1,4 +1,5 @@
 <?php
+// database/migrations/xxxx_xx_xx_xxxxxx_create_orders_table.php
 
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
@@ -29,12 +30,19 @@ return new class extends Migration
             ])->default('pending');
 
             // Optional meta
-            $table->string('payment_method')->nullable();  // cash, card, bkash, etc.
-            $table->string('reference')->nullable();       // receipt/order ref
+            $table->string('payment_method')->nullable();   // cash, card, bkash, etc.
+            $table->string('reference')->nullable();        // receipt/order ref
+            $table->text('note')->nullable();               // order-level note
+
+            // Staff workflow (optional, used in controller)
+            $table->foreignId('accepted_by')->nullable()->constrained('users')->nullOnDelete();
+            $table->timestamp('accepted_at')->nullable();
+            $table->text('cancel_reason')->nullable();
 
             $table->timestamps();
 
             $table->index(['user_id', 'status']);
+            $table->index('accepted_by');
         });
     }
 

@@ -5,7 +5,6 @@ namespace App\Http\Controllers;
 use App\Models\MenuItem;
 use App\Models\InventoryMovement;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Auth;
 use Illuminate\Validation\Rule;
 
 class InventoryMovementController extends Controller
@@ -68,14 +67,14 @@ class InventoryMovementController extends Controller
     public function store(Request $request, MenuItem $menuItem)
     {
         $data = $request->validate([
-            'type'          => ['required', Rule::in(['in','out','adjustment'])],
+            'type'           => ['required', Rule::in(['in','out','adjustment'])],
             // quantity is required for in/out; delta_qty for adjustment
-            'quantity'      => ['sometimes','integer','min:0'],
-            'delta_qty'     => ['sometimes','integer'],
-            'reason'        => ['sometimes','nullable','string','max:255'],
-            'reference'     => ['sometimes','nullable','string','max:255'],
-            'performed_at'  => ['sometimes','date'],
-            'allow_negative'=> ['sometimes','boolean'],
+            'quantity'       => ['sometimes','integer','min:0'],
+            'delta_qty'      => ['sometimes','integer'],
+            'reason'         => ['sometimes','nullable','string','max:255'],
+            'reference'      => ['sometimes','nullable','string','max:255'],
+            'performed_at'   => ['sometimes','date'],
+            'allow_negative' => ['sometimes','boolean'],
         ]);
 
         // Determine signed delta
@@ -92,7 +91,7 @@ class InventoryMovementController extends Controller
             // Prefer delta_qty; fallback to quantity as a signed value
             if (array_key_exists('delta_qty', $data)) {
                 $delta = (int) $data['delta_qty'];
-            } elseif (array_keyExists('quantity', $data)) {
+            } elseif (array_key_exists('quantity', $data)) {
                 $delta = (int) $data['quantity']; // can be positive or negative per client choice
             } else {
                 return response()->json([
@@ -102,7 +101,7 @@ class InventoryMovementController extends Controller
         }
 
         // Optional: prevent negative stock unless allow_negative=true
-        $current = (int) $menuItem->stock;
+        $current       = (int) $menuItem->stock;
         $allowNegative = (bool) ($data['allow_negative'] ?? false);
         if (!$allowNegative && ($current + $delta) < 0) {
             return response()->json([

@@ -108,23 +108,33 @@ class OrderController extends Controller
     /**
      * POST /api/orders
      * - Always created for the signed-in user
+     * - Accepts optional order note (saved if column exists)
+     * - Accepts optional client-computed unit_price (clamped to >= menu price)
      */
     public function store(Request $request)
     {
+        $auth = $request->user();
+        if (!$auth) {
+            return response()->json(['message' => 'Unauthenticated'], 401);
+        }
+
         $data = $request->validate([
             'reference'            => ['nullable','string','max:100'],
             'payment_method'       => ['nullable','string','max:50'],
+            'note'                 => ['sometimes','nullable','string','max:1000'], // order-level note (optional)
             'items'                => ['required','array','min:1'],
             'items.*.menu_item_id' => ['required','exists:menu_items,id'],
             'items.*.quantity'     => ['required','integer','min:1'],
             'items.*.note'         => ['sometimes','nullable','string','max:500'],
             'items.*.addons'       => ['sometimes','nullable','array'],
             'items.*.selections'   => ['sometimes','nullable','array'],
+            'items.*.unit_price'   => ['sometimes','numeric','min:0'],  // from cart (base + addons)
+            'items.*.base_price'   => ['sometimes','numeric','min:0'],  // optional, ignored by server math
         ]);
 
-        $order = DB::transaction(function () use ($request, $data) {
+        $order = DB::transaction(function () use ($auth, $data) {
             $order = Order::create([
-                'user_id'        => $request->user()->id,
+                'user_id'        => $auth->id,
                 'subtotal'       => 0,
                 'tax'            => 0,
                 'discount'       => 0,
@@ -133,6 +143,12 @@ class OrderController extends Controller
                 'payment_method' => $data['payment_method'] ?? 'online',
                 'reference'      => $data['reference'] ?? null,
             ]);
+
+            // Order-level note if column exists
+            if (isset($data['note']) && Schema::hasColumn('orders', 'note')) {
+                $order->note = $data['note'];
+                $order->save();
+            }
 
             $menuItemIds = collect($data['items'])->pluck('menu_item_id')->unique();
             $menuItems   = MenuItem::findMany($menuItemIds)->keyBy('id');
@@ -143,17 +159,25 @@ class OrderController extends Controller
                     throw new \Exception('Invalid menu item or missing price: '.$line['menu_item_id']);
                 }
 
+                // Use client-provided unit_price if present, but never below base DB price
+                $clientUnit = isset($line['unit_price']) ? (float) $line['unit_price'] : null;
+                $unitPrice  = is_null($clientUnit)
+                    ? (float) $menuItem->price
+                    : max((float) $menuItem->price, $clientUnit);
+
                 $order->items()->create([
                     'menu_item_id' => $line['menu_item_id'],
                     'quantity'     => $line['quantity'],
-                    'unit_price'   => $menuItem->price,
+                    'unit_price'   => $unitPrice,
                     'note'         => $line['note']        ?? null,
                     'addons'       => $line['addons']      ?? null,
                     'selections'   => $line['selections']  ?? null,
                 ]);
             }
 
+            // Ensure totals are correct
             $order->recalcTotals();
+
             return $order;
         });
 
@@ -175,7 +199,7 @@ class OrderController extends Controller
         $data = $request->validate([
             'menu_item_id' => ['required','exists:menu_items,id'],
             'quantity'     => ['required','integer','min:1'],
-            'unit_price'   => ['required','numeric','min:0'],
+            'unit_price'   => ['sometimes','numeric','min:0'], // now optional; we’ll clamp below
             'merge'        => ['sometimes','boolean'],
             'note'         => ['sometimes','nullable','string','max:500'],
             'addons'       => ['sometimes','nullable','array'],
@@ -183,11 +207,22 @@ class OrderController extends Controller
         ]);
 
         $merge = (bool) ($data['merge'] ?? true);
-        $item  = $order->items()->where('menu_item_id', $data['menu_item_id'])->first();
+
+        // Derive effective unit price with safety clamp
+        $menu = MenuItem::find($data['menu_item_id']);
+        if (!$menu || !isset($menu->price)) {
+            return response()->json(['message' => 'Invalid menu item.'], 422);
+        }
+        $clientUnit = array_key_exists('unit_price', $data) ? (float) $data['unit_price'] : null;
+        $unitPrice  = is_null($clientUnit)
+            ? (float) $menu->price
+            : max((float) $menu->price, $clientUnit);
+
+        $item = $order->items()->where('menu_item_id', $data['menu_item_id'])->first();
 
         if ($item && $merge) {
             $item->quantity   += $data['quantity'];
-            $item->unit_price  = $data['unit_price'];
+            $item->unit_price  = $unitPrice;
             if (array_key_exists('note', $data))       $item->note = $data['note'];
             if (array_key_exists('addons', $data))     $item->addons = $data['addons'];
             if (array_key_exists('selections', $data)) $item->selections = $data['selections'];
@@ -196,12 +231,15 @@ class OrderController extends Controller
             $order->items()->create([
                 'menu_item_id' => $data['menu_item_id'],
                 'quantity'     => $data['quantity'],
-                'unit_price'   => $data['unit_price'],
+                'unit_price'   => $unitPrice,
                 'note'         => $data['note']        ?? null,
                 'addons'       => $data['addons']      ?? null,
                 'selections'   => $data['selections']  ?? null,
             ]);
         }
+
+        // Totals after mutation
+        $order->recalcTotals();
 
         return response()->json($order->fresh()->load('items.menuItem'));
     }
@@ -222,6 +260,10 @@ class OrderController extends Controller
         }
 
         $orderItem->delete();
+
+        // Totals after mutation
+        $order->recalcTotals();
+
         return response()->json($order->fresh()->load('items.menuItem'));
     }
 

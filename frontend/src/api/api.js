@@ -55,7 +55,7 @@ export async function put (url, data, cfg)  { await ensureCsrf(); return apiClie
 export async function patch(url, data, cfg) { await ensureCsrf(); return apiClient.patch(url, data, cfg); }
 export async function del(url, cfg)         { await ensureCsrf(); return apiClient.delete(url, cfg); }
 
-/* ================== Auth (Sanctum cookie) ================== */
+/* ================== Auth (Sanctum cookie via web routes) ================== */
 export async function getMe() {
   try {
     const { data } = await apiClient.get("/api/auth/me");
@@ -66,20 +66,20 @@ export async function getMe() {
   }
 }
 export async function login(email, password, remember = false) {
-  const { data } = await post("/api/auth/login", { email, password, remember });
+  const { data } = await post("/login", { email, password, remember });
   return data;
 }
 export async function register(payload) {
-  const { data } = await post("/api/auth/register", payload);
+  const { data } = await post("/register", payload);
   return data;
 }
 export async function logout() {
-  await post("/api/auth/logout");
+  await post("/logout");
 }
 
-/* ================== Admin ================== */
+/* ================== Admin (web route for session login) ================== */
 export async function adminLogin(email, password) {
-  const { data } = await post("/api/admin/login", { email, password });
+  const { data } = await post("/admin/login", { email, password });
   return data;
 }
 export async function getPendingUsers() {

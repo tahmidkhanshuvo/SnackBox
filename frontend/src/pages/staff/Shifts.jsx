@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import StaffLayout from "./StaffLayout.jsx";
-import apiClient from "../../api/api";
+import apiClient, { getMe } from "../../api/api";
 
 /* ---------- config ---------- */
 const DAYS_OF_WEEK = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
@@ -40,7 +40,7 @@ const getWeekDates = (startDate) => {
   return dates;
 };
 
-/* ---------- components ---------- */
+/* ---------- small UI bits ---------- */
 function IconBtn({ kind = "ghost", title, ariaLabel, onClick, disabled = false, children }) {
   const base = {
     width: 34, height: 34, minWidth: 34,
@@ -92,125 +92,109 @@ export default function StaffShifts() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [showRequestModal, setShowRequestModal] = useState(false);
-  const [selectedShift, setSelectedShift] = useState(null);
+  const [selectedShift, setSelectedShift] = useState(null); // will hold the whole shift object
 
   const weekDates = useMemo(() => getWeekDates(currentWeek), [currentWeek]);
 
   useEffect(() => {
     fetchShiftData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentWeek]);
 
   async function fetchShiftData() {
     setLoading(true);
     setError("");
     try {
+      // Shift templates (paginate shape supported)
       const templatesResponse = await apiClient.get("/api/shifts");
-      setShiftTemplates(Array.isArray(templatesResponse.data) ? templatesResponse.data : templatesResponse.data?.data || []);
-      console.log("Shift templates fetched:", templatesResponse.data);
+      const incomingTemplates = Array.isArray(templatesResponse.data)
+        ? templatesResponse.data
+        : (templatesResponse.data?.data || []);
+      setShiftTemplates(incomingTemplates);
 
-      const userData = await getCurrentStaffId();
-      if (userData) {
-        const staffId = userData.staff?.id || userData.id;
-        const weekStart = currentWeek.toISOString().split('T')[0];
-        console.log("Fetching shifts for staffId:", staffId, "week:", weekStart);
-        const assignmentsResponse = await apiClient.get(`/api/staff/${staffId}/shifts`, {
-          params: { week: weekStart }
-        });
-        const shiftData = Array.isArray(assignmentsResponse.data) ? assignmentsResponse.data : assignmentsResponse.data?.data || [];
-        console.log("Raw shift data received:", shiftData);
+      // Current user (via correct endpoint)
+      const userData = await getMe();
+      if (!userData) throw new Error("Unauthenticated.");
+      const staffId = userData.staff?.id || userData.id;
 
-        // Transform shift data with safe date handling
-        const transformedShifts = shiftData.map(shift => {
-          console.log("Processing shift.date:", shift.date, "type:", typeof shift.date); // Debug log
-          let normalizedDate;
-          if (shift.date instanceof Date) {
-            normalizedDate = shift.date.toISOString().split('T')[0];
-          } else if (typeof shift.date === 'string') {
-            normalizedDate = new Date(shift.date).toISOString().split('T')[0]; // Parse string to normalize
-          } else {
-            normalizedDate = new Date().toISOString().split('T')[0]; // Fallback to today if invalid
-            console.warn("Invalid date format for shift:", shift, "using fallback:", normalizedDate);
-          }
-          return {
-            id: shift.id,
-            date: normalizedDate,
-            shift_id: shift.shift_id,
-            shift_name: shift.shift?.name || shift.shift_name || "Unnamed Shift",
-            start_time: shift.shift?.starts_at || shift.start_time || "00:00:00",
-            end_time: shift.shift?.ends_at || shift.end_time || "00:00:00",
-            status: shift.status || "assigned"
-          };
-        });
-        console.log("Transformed shifts:", transformedShifts);
-        setShifts(transformedShifts);
-      } else {
-        setError("Could not determine staff ID.");
-      }
+      // Assignments for the week
+      const weekStart = weekDates[0].toISOString().split("T")[0];
+      const assignmentsResponse = await apiClient.get(`/api/staff/${staffId}/shifts`, {
+        params: { week: weekStart }
+      });
+      const raw = Array.isArray(assignmentsResponse.data)
+        ? assignmentsResponse.data
+        : (assignmentsResponse.data?.data || []);
+
+      // Normalize data we render
+      const transformed = raw.map((s) => {
+        let dateStr;
+        if (typeof s.date === "string" && /^\d{4}-\d{2}-\d{2}/.test(s.date)) {
+          // keep as returned to avoid TZ shifts
+          dateStr = s.date;
+        } else if (s.date instanceof Date) {
+          dateStr = s.date.toISOString().split("T")[0];
+        } else {
+          // graceful fallback (shouldn't happen)
+          dateStr = new Date().toISOString().split("T")[0];
+        }
+        return {
+          id: s.id,
+          date: dateStr,
+          shift_id: s.shift_id,
+          shift_name: s.shift?.name || s.shift_name || "Unnamed Shift",
+          start_time: s.shift?.starts_at || s.start_time || "00:00:00",
+          end_time: s.shift?.ends_at || s.end_time || "00:00:00",
+          status: s.status || "assigned",
+        };
+      });
+
+      setShifts(transformed);
     } catch (e) {
       console.error("Failed to load shift data:", e);
-      setError(`Failed to load shift data: ${e.message}. Please try again or ensure API endpoints are implemented.`);
+      setError(`Failed to load shift data: ${e?.response?.data?.message || e.message}`);
       setShifts(generateSampleShifts(weekDates, shiftTemplates));
     } finally {
       setLoading(false);
     }
   }
 
-  async function getCurrentStaffId() {
+  /* Attendance actions now operate on StaffShift ID only (no date/staff_id payload) */
+  async function acceptShift(staffShiftId) {
     try {
-      const { data } = await apiClient.get("/api/me");
-      console.log("User data from /api/me:", data);
-      return data;
-    } catch (e) {
-      console.error("Failed to get staff ID:", e);
-      return null;
-    }
-  }
-
-  async function acceptShift(shiftId, date) {
-    try {
-      const userData = await getCurrentStaffId();
-      await apiClient.patch(`/api/shifts/${shiftId}/accept`, { staff_id: userData?.staff?.id || userData?.id, date });
+      await apiClient.patch(`/api/shifts/${staffShiftId}/accept`, {});
       fetchShiftData();
     } catch (e) {
-      alert(e?.response?.data?.message || "Failed to accept shift. Please ensure the API endpoint is implemented.");
+      alert(e?.response?.data?.message || "Failed to accept shift.");
     }
   }
 
-  async function requestShiftChange(shiftId, reason, date) {
+  async function requestShiftChange(staffShiftId, reason) {
     try {
-      const userData = await getCurrentStaffId();
-      await apiClient.patch(`/api/shifts/${shiftId}/request-change`, { staff_id: userData?.staff?.id || userData?.id, reason, date });
+      await apiClient.patch(`/api/shifts/${staffShiftId}/request-change`, { reason });
       setShowRequestModal(false);
       setSelectedShift(null);
       fetchShiftData();
     } catch (e) {
-      alert(e?.response?.data?.message || "Failed to request change. Please ensure the API endpoint is implemented.");
+      alert(e?.response?.data?.message || "Failed to request change.");
     }
   }
 
-  async function markLate(shiftId, date) {
-    const userData = await getCurrentStaffId();
+  async function markLate(staffShiftId) {
     try {
-      await apiClient.patch(`/api/shifts/${shiftId}/mark-late`, {
-        staff_id: userData?.staff?.id || userData?.id,
-        date: date
-      });
+      await apiClient.patch(`/api/shifts/${staffShiftId}/mark-late`, {});
       fetchShiftData();
     } catch (e) {
-      alert(e?.response?.data?.message || "Failed to mark shift as late. Please ensure the API endpoint is implemented.");
+      alert(e?.response?.data?.message || "Failed to mark shift as late.");
     }
   }
 
-  async function markAbsent(shiftId, date) {
-    const userData = await getCurrentStaffId();
+  async function markAbsent(staffShiftId) {
     try {
-      await apiClient.patch(`/api/shifts/${shiftId}/mark-absent`, {
-        staff_id: userData?.staff?.id || userData?.id,
-        date: date
-      });
+      await apiClient.patch(`/api/shifts/${staffShiftId}/mark-absent`, {});
       fetchShiftData();
     } catch (e) {
-      alert(e?.response?.data?.message || "Failed to mark shift as absent. Please ensure the API endpoint is implemented.");
+      alert(e?.response?.data?.message || "Failed to mark shift as absent.");
     }
   }
 
@@ -222,12 +206,10 @@ export default function StaffShifts() {
 
   const shiftsByDate = useMemo(() => {
     const grouped = {};
-    weekDates.forEach(date => {
-      const dateStr = date.toISOString().split('T')[0];
-      grouped[dateStr] = shifts.filter(shift => shift.date === dateStr);
-      console.log(`shiftsByDate[${dateStr}]:`, grouped[dateStr]); // Debug log
+    weekDates.forEach((date) => {
+      const dateStr = date.toISOString().split("T")[0];
+      grouped[dateStr] = shifts.filter((s) => s.date === dateStr);
     });
-    console.log("Full shiftsByDate:", grouped); // Debug log for the entire object
     return grouped;
   }, [shifts, weekDates]);
 
@@ -269,15 +251,21 @@ export default function StaffShifts() {
       {/* Weekly Calendar */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 12 }}>
         {weekDates.map((date, index) => {
-          const dateStr = date.toISOString().split('T')[0];
+          const dateStr = date.toISOString().split("T")[0];
           const dayShifts = shiftsByDate[dateStr] || [];
           const isToday = new Date().toDateString() === date.toDateString();
 
           return (
-            <div key={index} style={{
-              padding: 12, borderRadius: 12, border: `1px solid ${isToday ? "var(--sb-green-100)" : "var(--sb-border)"}`,
-              background: isToday ? "var(--sb-green-100)" : "var(--sb-surface)", transition: "all .2s ease"
-            }}>
+            <div
+              key={index}
+              style={{
+                padding: 12,
+                borderRadius: 12,
+                border: `1px solid ${isToday ? "var(--sb-green-100)" : "var(--sb-border)"}`,
+                background: isToday ? "var(--sb-green-100)" : "var(--sb-surface)",
+                transition: "all .2s ease"
+              }}
+            >
               <div style={{ textAlign: "center", marginBottom: 10 }}>
                 <div style={{ fontSize: 12, fontWeight: 700, color: "var(--sb-muted)" }}>{DAYS_OF_WEEK[date.getDay()]}</div>
                 <div style={{ fontSize: 18, fontWeight: 900, color: isToday ? "var(--sb-green-600)" : "#0f172a" }}>
@@ -290,11 +278,18 @@ export default function StaffShifts() {
                   No shifts scheduled
                 </div>
               ) : (
-                dayShifts.map(shift => (
-                  <ShiftCard key={shift.id} shift={shift} onAccept={acceptShift} onRequestChange={(shift) => {
-                    setSelectedShift({ id: shift.id, date: shift.date }); // Explicitly set id and date
-                    setShowRequestModal(true);
-                  }} onMarkLate={markLate} onMarkAbsent={markAbsent} />
+                dayShifts.map((shift) => (
+                  <ShiftCard
+                    key={shift.id}
+                    shift={shift}
+                    onAccept={() => acceptShift(shift.id)}
+                    onRequestChange={() => {
+                      setSelectedShift(shift); // keep whole shift
+                      setShowRequestModal(true);
+                    }}
+                    onMarkLate={() => markLate(shift.id)}
+                    onMarkAbsent={() => markAbsent(shift.id)}
+                  />
                 ))
               )}
             </div>
@@ -308,7 +303,7 @@ export default function StaffShifts() {
           <div style={{ background: "var(--sb-surface)", borderRadius: 12, padding: 20, width: 400, boxShadow: "var(--sb-shadow)" }}>
             <h3 id="modal-title" style={{ fontSize: 18, fontWeight: 700, color: "#0f172a", marginBottom: 10 }}>Request Shift Change</h3>
             <p style={{ color: "var(--sb-muted)", marginBottom: 10 }}>
-              Requesting change for {shiftTemplates.find(t => t.id === selectedShift.shift_id)?.name || "Unnamed Shift"} shift on {selectedShift.date}
+              Requesting change for <strong>{selectedShift.shift_name}</strong> on <strong>{selectedShift.date}</strong>
             </p>
 
             <textarea
@@ -323,14 +318,19 @@ export default function StaffShifts() {
               <IconBtn kind="outline" onClick={() => setShowRequestModal(false)} title="Cancel" ariaLabel="Cancel Change Request">
                 <Icon.X />
               </IconBtn>
-              <IconBtn kind="primary" onClick={() => {
-                const reason = document.getElementById('changeRequest').value;
-                if (reason.trim()) {
-                  requestShiftChange(selectedShift.id, reason.trim(), selectedShift.date);
-                } else {
-                  alert("Please provide a reason for the change request.");
-                }
-              }} title="Request Change" ariaLabel="Submit Change Request">
+              <IconBtn
+                kind="primary"
+                onClick={() => {
+                  const reason = document.getElementById("changeRequest").value.trim();
+                  if (reason) {
+                    requestShiftChange(selectedShift.id, reason);
+                  } else {
+                    alert("Please provide a reason for the change request.");
+                  }
+                }}
+                title="Request Change"
+                ariaLabel="Submit Change Request"
+              >
                 <Icon.Check />
               </IconBtn>
             </div>
@@ -345,9 +345,16 @@ function ShiftCard({ shift, onAccept, onRequestChange, onMarkLate, onMarkAbsent 
   const status = SHIFT_STATUSES[shift.status] || SHIFT_STATUSES.assigned;
 
   return (
-    <div style={{
-      padding: 10, marginBottom: 8, borderRadius: 8, border: "1px solid var(--sb-border)", background: "var(--sb-surface)", transition: "all .2s ease"
-    }}>
+    <div
+      style={{
+        padding: 10,
+        marginBottom: 8,
+        borderRadius: 8,
+        border: "1px solid var(--sb-border)",
+        background: "var(--sb-surface)",
+        transition: "all .2s ease"
+      }}
+    >
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
         <StatusPill status={shift.status} />
         <div style={{ display: "flex", alignItems: "center", gap: 6, color: "var(--sb-muted)" }}>
@@ -361,33 +368,33 @@ function ShiftCard({ shift, onAccept, onRequestChange, onMarkLate, onMarkAbsent 
       </div>
 
       <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-        {shift.status === 'assigned' && (
+        {shift.status === "assigned" && (
           <>
-            <IconBtn kind="primary" onClick={() => onAccept(shift.id, shift.date)} title="Accept Shift" ariaLabel="Accept Shift">
+            <IconBtn kind="primary" onClick={onAccept} title="Accept Shift" ariaLabel="Accept Shift">
               <Icon.Check />
             </IconBtn>
-            <IconBtn kind="outline" onClick={() => onRequestChange(shift)} title="Request Change" ariaLabel="Request Change">
+            <IconBtn kind="outline" onClick={onRequestChange} title="Request Change" ariaLabel="Request Change">
               <Icon.Refresh />
             </IconBtn>
           </>
         )}
-        {shift.status === 'accepted' && (
+        {shift.status === "accepted" && (
           <>
-            <IconBtn kind="outline" onClick={() => onMarkLate(shift.id, shift.date)} title="Mark Late" ariaLabel="Mark Late">
+            <IconBtn kind="outline" onClick={onMarkLate} title="Mark Late" ariaLabel="Mark Late">
               <Icon.Clock />
             </IconBtn>
-            <IconBtn kind="danger" onClick={() => onMarkAbsent(shift.id, shift.date)} title="Mark Absent" ariaLabel="Mark Absent">
+            <IconBtn kind="danger" onClick={onMarkAbsent} title="Mark Absent" ariaLabel="Mark Absent">
               <Icon.X />
             </IconBtn>
           </>
         )}
-        {shift.status === 'requested_change' && (
+        {shift.status === "requested_change" && (
           <span style={{ fontSize: 12, color: "#9a3412", fontWeight: 700 }}>Change requested</span>
         )}
-        {shift.status === 'late' && (
+        {shift.status === "late" && (
           <span style={{ fontSize: 12, color: "#92400e", fontWeight: 700 }}>Late</span>
         )}
-        {shift.status === 'absent' && (
+        {shift.status === "absent" && (
           <span style={{ fontSize: 12, color: "#881337", fontWeight: 700 }}>Absent</span>
         )}
       </div>
@@ -395,16 +402,27 @@ function ShiftCard({ shift, onAccept, onRequestChange, onMarkLate, onMarkAbsent 
   );
 }
 
-// Sample data generator for demonstration
+// Sample data generator (fallback only)
 function generateSampleShifts(weekDates, templates) {
-  if (templates.length === 0) return [];
-  return weekDates.map((date, index) => ({
-    id: index + 1,
-    date: date.toISOString().split('T')[0],
-    shift_id: templates[index % templates.length].id,
-    shift_name: templates[index % templates.length].name,
-    start_time: templates[index % templates.length].starts_at,
-    end_time: templates[index % templates.length].ends_at,
-    status: index % 5 === 0 ? 'assigned' : index % 5 === 1 ? 'accepted' : index % 5 === 2 ? 'requested_change' : index % 5 === 3 ? 'late' : 'absent'
-  })).filter((_, index) => index % 2 === 0);
+  if (!Array.isArray(templates) || templates.length === 0) return [];
+  return weekDates
+    .map((date, index) => ({
+      id: index + 1,
+      date: date.toISOString().split("T")[0],
+      shift_id: templates[index % templates.length].id,
+      shift_name: templates[index % templates.length].name,
+      start_time: templates[index % templates.length].starts_at,
+      end_time: templates[index % templates.length].ends_at,
+      status:
+        index % 5 === 0
+          ? "assigned"
+          : index % 5 === 1
+          ? "accepted"
+          : index % 5 === 2
+          ? "requested_change"
+          : index % 5 === 3
+          ? "late"
+          : "absent",
+    }))
+    .filter((_, index) => index % 2 === 0);
 }

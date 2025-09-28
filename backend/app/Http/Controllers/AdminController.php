@@ -5,7 +5,8 @@ namespace App\Http\Controllers;
 use App\Models\User;
 use App\Models\Staff;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 
 class AdminController extends Controller
 {
@@ -19,28 +20,24 @@ class AdminController extends Controller
         $pending = User::with('staff')
             ->where(function ($q) {
                 $q->where('role', 'pending')
-                  ->orWhereHas('staff', fn($sq) => $sq->where('is_active', false));
+                  ->orWhereHas('staff', fn ($sq) => $sq->where('is_active', false));
             })
             ->orderByDesc('created_at')
             ->get()
             ->map(function (User $u) {
-                $u->setAttribute(
-                    'avatar_url',
-                    $u->avatar_path ? Storage::disk('public')->url($u->avatar_path) : null
-                );
                 return [
                     'id'          => $u->id,
                     'name'        => $u->name,
                     'email'       => $u->email,
                     'role'        => $u->role,
                     'created_at'  => $u->created_at,
+                    'avatar_url'  => $u->avatar_url, // accessor from User model
                     'staff'       => $u->staff ? [
                         'id'         => $u->staff->id,
                         'is_active'  => (bool) $u->staff->is_active,
                         'first_name' => $u->staff->first_name,
                         'last_name'  => $u->staff->last_name,
                     ] : null,
-                    'avatar_url'  => $u->getAttribute('avatar_url'),
                 ];
             });
 
@@ -54,44 +51,47 @@ class AdminController extends Controller
      */
     public function approveUser($id)
     {
-        /** @var User $user */
-        $user = User::with('staff')->findOrFail($id);
+        /** @var \App\Models\User $user */
+        $user = DB::transaction(function () use ($id) {
+            $user = User::with('staff')->lockForUpdate()->findOrFail($id);
 
-        $role = strtolower((string) ($user->role ?? ''));
-        if (in_array($role, ['admin', 'superadmin'], true)) {
-            return response()->json(['message' => 'Cannot approve an admin user'], 400);
-        }
+            $role = strtolower((string) ($user->role ?? ''));
+            if (in_array($role, ['admin', 'superadmin'], true)) {
+                abort(response()->json(['message' => 'Cannot approve an admin user'], 400));
+            }
 
-        // Ensure staff row exists
-        if (!$user->staff) {
-            $nameParts = explode(' ', $user->name, 2);
-            $user->setRelation('staff', Staff::create([
-                'user_id'    => $user->id,
-                'first_name' => $nameParts[0] ?? '',
-                'last_name'  => $nameParts[1] ?? '',
-                'email'      => $user->email,
-                'is_active'  => false,
-            ]));
-        }
+            // Ensure staff row exists, then activate it
+            if (!$user->staff) {
+                $nameParts = explode(' ', (string) $user->name, 2);
+                $user->setRelation('staff', Staff::create([
+                    'user_id'    => $user->id,
+                    'first_name' => $nameParts[0] ?? '',
+                    'last_name'  => $nameParts[1] ?? '',
+                    'email'      => $user->email,
+                    'is_active'  => true,
+                ]));
+            } else {
+                $user->staff->is_active = true;
+                $user->staff->save();
+            }
 
-        // Activate staff and normalize role
-        $user->staff->is_active = true;
-        $user->staff->save();
+            // Normalize role
+            if ($role === 'pending' || $role === '' || $role === null) {
+                $user->role = 'staff';
+            }
 
-        if ($role === 'pending' || $role === '' || $role === null) {
-            $user->role = 'staff';
-        }
-        if (schema_has_column('users', 'approved_at')) {
-            $user->approved_at = now();
-        }
-        $user->save();
+            if (Schema::hasColumn('users', 'approved_at')) {
+                $user->approved_at = now();
+            }
 
-        $user->load('staff');
-        $user = $this->augmentUser($user);
+            $user->save();
+
+            return $user->fresh('staff');
+        });
 
         return response()->json([
             'message' => 'User approved successfully',
-            'user'    => $user,
+            'user'    => $user, // includes avatar_url & display_name via appends
         ]);
     }
 
@@ -103,32 +103,13 @@ class AdminController extends Controller
 
     public function adminOrders()
     {
-        $orders = \App\Models\Order::with(['user', 'items'])->latest()->get();
+        $orders = \App\Models\Order::with([
+                'user:id,name,email',
+                'items.menuItem',
+            ])
+            ->latest()
+            ->get();
+
         return response()->json($orders);
-    }
-
-    /**
-     * Attach avatar_url and preload staff.
-     */
-    protected function augmentUser(User $user): User
-    {
-        $user->load('staff');
-        $url = $user->avatar_path ? Storage::disk('public')->url($user->avatar_path) : null;
-        $user->setAttribute('avatar_url', $url);
-        return $user;
-    }
-}
-
-/**
- * Tiny helper to check column existence safely without importing Schema in signature.
- */
-if (!function_exists('schema_has_column')) {
-    function schema_has_column(string $table, string $column): bool
-    {
-        try {
-            return \Illuminate\Support\Facades\Schema::hasColumn($table, $column);
-        } catch (\Throwable $e) {
-            return false;
-        }
     }
 }

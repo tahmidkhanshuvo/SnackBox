@@ -1,7 +1,7 @@
 // src/pages/admin/AdminLogin.jsx
 import React, { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { adminLogin, getMe } from "../../api/api";
+import { adminLogin, getMe, ensureCsrf } from "../../api/api";
 
 /* ----------------------- ACETERNITY-THEMED STYLES ----------------------- */
 const AdminStyles = () => (
@@ -128,10 +128,28 @@ function HeroParallax() {
 function AdminLoginForm({ onLoginSuccess }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [remember, setRemember] = useState(false); // kept for future; not required by backend
+  const [remember, setRemember] = useState(false); // optional; backend ignores for admin
   const [showPw, setShowPw] = useState(false);
   const [msg, setMsg] = useState("");
   const [loading, setLoading] = useState(false);
+
+  // Pre-warm CSRF & auto-enter if already authenticated as admin
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      try {
+        await ensureCsrf();
+        const me = await getMe();
+        const role = String(me?.role || "").toLowerCase();
+        if (mounted && (role === "admin" || role === "superadmin")) {
+          onLoginSuccess?.(me);
+        }
+      } catch {
+        // ignore; normal flow will handle CSRF on submit
+      }
+    })();
+    return () => { mounted = false; };
+  }, [onLoginSuccess]);
 
   const submit = async (e) => {
     e.preventDefault();
@@ -147,13 +165,12 @@ function AdminLoginForm({ onLoginSuccess }) {
       if (!["admin", "superadmin"].includes(role)) {
         throw new Error("Only admins can access the admin panel.");
       }
-      // Let App.jsx decide the final route + toast
-      onLoginSuccess?.(user);
+      onLoginSuccess?.(user); // App.jsx will route & toast
     } catch (err) {
       const serverMsg =
         err?.response?.data?.message ||
         (err?.response?.data?.errors && Object.values(err.response.data.errors).flat().join(" ")) ||
-        err.message;
+        err?.message;
       setMsg(serverMsg || "Login failed. Please try again.");
     } finally {
       setLoading(false);
