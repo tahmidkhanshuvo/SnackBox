@@ -43,10 +43,30 @@ try {
 
 /** ---------- CSRF warmup ---------- */
 let csrfPromise = null;
+
+// Helper to extract CSRF token from cookie and set it explicitly on axios
+// This works around axios not automatically setting the header in some environments
+function getCsrfToken() {
+  if (typeof document === "undefined") return null;
+  const cookies = document.cookie.split("; ");
+  const xsrfCookie = cookies.find((row) => row.startsWith("XSRF-TOKEN="));
+  if (!xsrfCookie) return null;
+  return decodeURIComponent(xsrfCookie.split("=")[1]);
+}
+
 export async function ensureCsrf() {
   if (!WITH_CREDENTIALS) return; // not needed when not using cookies
   if (!csrfPromise) csrfPromise = apiClient.get("/sanctum/csrf-cookie");
-  try { await csrfPromise; } finally { csrfPromise = null; }
+  try {
+    await csrfPromise;
+    // Explicitly set the CSRF token header after fetching the cookie
+    const token = getCsrfToken();
+    if (token) {
+      apiClient.defaults.headers["X-XSRF-TOKEN"] = token;
+    }
+  } finally {
+    csrfPromise = null;
+  }
 }
 
 /** ---------- auto-retry once on 419 ---------- */

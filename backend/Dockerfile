@@ -41,7 +41,7 @@ ENV PORT=10000 \
     APP_ENV=production \
     APP_DEBUG=false \
     PHP_OPCACHE_VALIDATE_TIMESTAMPS=0 \
-    RESET_DB=1 \
+    RESET_DB=0 \
     SEED=0
 
 EXPOSE 10000

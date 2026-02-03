@@ -63,7 +63,7 @@ export default function Product({ productId }) {
   const img    = item?.img
               || item?.image_url
               || (item?.image_path ? `/storage/${item.image_path}` : null)
-              || "https://images.unsplash.com/photo-1551782450-17144c3a8f53?q=80&w=2000";
+              || "https://thumbs.dreamstime.com/b/high-quality-burger-imagery-rustic-gourmet-scene-platter-cinematic-image-k-feast-356106533.jpg";
   const base   = Number(item?.price ?? 0);
   const rating = item?.rating ?? 4.6;
   const time   = item?.time ?? item?.preparation_time ?? "20–30 min";
