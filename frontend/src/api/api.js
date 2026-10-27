@@ -7,15 +7,18 @@ const isLocal =
 
 const FORCE_REMOTE = (import.meta.env.VITE_FORCE_REMOTE ?? "false") === "true";
 const BASE_URL = isLocal
-  ? (FORCE_REMOTE ? import.meta.env.VITE_API_URL : "")
-  : (import.meta.env.VITE_API_URL || "");
+  ? FORCE_REMOTE
+    ? import.meta.env.VITE_API_URL
+    : ""
+  : import.meta.env.VITE_API_URL || "";
 
 const WITH_CREDENTIALS =
-  (import.meta.env.VITE_WITH_CREDENTIALS ?? "true") === "true";
+  (import.meta.env.VITE_WITH_CREDENTIALS ?? "false") === "true";
 
 /** ---------- axios instance ---------- */
 const apiClient = axios.create({
   baseURL: BASE_URL,
+  timeout: 90000,
   withCredentials: WITH_CREDENTIALS,
   headers: {
     "X-Requested-With": "XMLHttpRequest",
@@ -28,16 +31,21 @@ const apiClient = axios.create({
 /** ---------- token header helpers (for stateless fallback) ---------- */
 function setAuthToken(token) {
   if (!token) return;
-  try { localStorage.setItem("token", token); } catch {}
+  try {
+    localStorage.setItem("token", token);
+  } catch {}
   apiClient.defaults.headers.Authorization = `Bearer ${token}`;
 }
 function clearAuthToken() {
-  try { localStorage.removeItem("token"); } catch {}
+  try {
+    localStorage.removeItem("token");
+  } catch {}
   delete apiClient.defaults.headers.Authorization;
 }
 // attach saved bearer on boot
 try {
-  const saved = typeof window !== "undefined" ? localStorage.getItem("token") : null;
+  const saved =
+    typeof window !== "undefined" ? localStorage.getItem("token") : null;
   if (saved) setAuthToken(saved);
 } catch {}
 
@@ -81,14 +89,26 @@ apiClient.interceptors.response.use(
       } catch {}
     }
     return Promise.reject(error);
-  }
+  },
 );
 
 /** ---------- convenience wrappers (mutations auto-CSRF) ---------- */
-export async function post(url, data, cfg)  { await ensureCsrf(); return apiClient.post(url, data, cfg); }
-export async function put (url, data, cfg)  { await ensureCsrf(); return apiClient.put (url, data, cfg); }
-export async function patch(url, data, cfg) { await ensureCsrf(); return apiClient.patch(url, data, cfg); }
-export async function del(url, cfg)         { await ensureCsrf(); return apiClient.delete(url, cfg); }
+export async function post(url, data, cfg) {
+  await ensureCsrf();
+  return apiClient.post(url, data, cfg);
+}
+export async function put(url, data, cfg) {
+  await ensureCsrf();
+  return apiClient.put(url, data, cfg);
+}
+export async function patch(url, data, cfg) {
+  await ensureCsrf();
+  return apiClient.patch(url, data, cfg);
+}
+export async function del(url, cfg) {
+  await ensureCsrf();
+  return apiClient.delete(url, cfg);
+}
 
 /* ================== Auth ================== */
 export async function getMe() {
@@ -103,13 +123,17 @@ export async function getMe() {
 
 /** Stateless token login (no cookies) */
 export async function tokenLogin(email, password) {
-  const { data } = await apiClient.post("/api/token-login", { email, password });
+  const { data } = await apiClient.post("/api/token-login", {
+    email,
+    password,
+  });
   if (data?.token) setAuthToken(data.token);
   return data; // { token, user }
 }
 
 /** Cookie login (preferred). On success, refresh CSRF because session was regenerated. */
 export async function login(email, password, remember = false) {
+  if (!WITH_CREDENTIALS) return tokenLogin(email, password);
   try {
     await ensureCsrf(); // for submitting the login
     const { data } = await post("/login", { email, password, remember });
@@ -127,6 +151,12 @@ export async function login(email, password, remember = false) {
 
 /** Cookie register (preferred). Refresh CSRF afterwards if a session was created. */
 export async function register(payload) {
+  if (!WITH_CREDENTIALS) {
+    const { data } = await apiClient.post("/api/token-register", payload);
+    if (payload?.account_type !== "staff" && data?.token)
+      setAuthToken(data.token);
+    return data;
+  }
   try {
     await ensureCsrf(); // for submitting register
     const { data } = await post("/register", payload);
@@ -138,7 +168,8 @@ export async function register(payload) {
     if ([419, 401, 400].includes(s)) {
       // stateless registration (no cookies/CSRF)
       const { data } = await apiClient.post("/api/token-register", payload);
-      if (payload?.account_type !== "staff" && data?.token) setAuthToken(data.token);
+      if (payload?.account_type !== "staff" && data?.token)
+        setAuthToken(data.token);
       return data; // staff => 202 + message; customer => { token, user }
     }
     throw e;
@@ -147,14 +178,28 @@ export async function register(payload) {
 
 export async function logout() {
   // cookie session logout (best-effort)
-  try { await post("/logout"); } catch {}
+  try {
+    await post("/logout");
+  } catch {}
   // token logout (best-effort)
-  try { await apiClient.post("/api/token-logout"); } catch {}
+  try {
+    await apiClient.post("/api/token-logout");
+  } catch {}
   clearAuthToken();
 }
 
 /* ================== Admin (cookie session) ================== */
 export async function adminLogin(email, password) {
+  if (!WITH_CREDENTIALS) {
+    const data = await tokenLogin(email, password);
+    if (
+      !["admin", "superadmin"].includes(String(data?.user?.role).toLowerCase())
+    ) {
+      clearAuthToken();
+      throw new Error("Administrator access required.");
+    }
+    return data;
+  }
   await ensureCsrf();
   const { data } = await post("/admin/login", { email, password });
   await ensureCsrf(); // new admin session → refresh CSRF
@@ -170,6 +215,10 @@ export async function approveUser(userId) {
 }
 
 /* ================== Menu / Orders ================== */
+export async function listMenuCategories() {
+  const { data } = await apiClient.get("/api/menu-categories");
+  return Array.isArray(data) ? data : [];
+}
 export async function listMenuItems(params = {}) {
   const { data } = await apiClient.get("/api/menu-items", { params });
   const items = Array.isArray(data) ? data : (data?.data ?? []);
@@ -195,14 +244,19 @@ export async function cancelOrder(id, reason) {
   if (reason && String(reason).trim()) payload.reason = String(reason).trim();
   const attempts = [
     { method: "patch", url: `/api/orders/${id}/status`, data: payload },
-    { method: "patch", url: `/api/orders/${id}`,        data: payload },
+    { method: "patch", url: `/api/orders/${id}`, data: payload },
   ];
   let lastErr = null;
   for (const a of attempts) {
-    try { const { data } = await apiClient.request(a); return data; }
-    catch (e) {
+    try {
+      const { data } = await apiClient.request(a);
+      return data;
+    } catch (e) {
       const code = e?.response?.status;
-      if (code === 404 || code === 405) { lastErr = e; continue; }
+      if (code === 404 || code === 405) {
+        lastErr = e;
+        continue;
+      }
       throw e;
     }
   }

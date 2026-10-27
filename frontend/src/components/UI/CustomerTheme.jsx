@@ -6,12 +6,12 @@ export default function CustomerTheme() {
     <style>{`
       :root {
         /* brand tokens */
-        --sb-bg: #ffffff;
+        --sb-bg: #fbfaf6;
         --sb-muted: #6b7280;
         --sb-text: #0f172a;
-        --sb-primary: #ff2b4d;
-        --sb-primary-700: #e02443;
-        --sb-primary-50: #fff1f3;
+        --sb-primary: #b74c30;
+        --sb-primary-700: #963923;
+        --sb-primary-50: #fbede6;
         --sb-accent: #111827;
 
         --sb-card-radius: 18px;
@@ -45,8 +45,8 @@ export default function CustomerTheme() {
         flex-direction: column;
         color: var(--sb-text);
         background:
-          radial-gradient(900px 500px at 100% 0%, #ffe3e8 0%, transparent 50%),
-          radial-gradient(800px 500px at 0% 80%, #fff7f8 0%, transparent 50%),
+          radial-gradient(900px 500px at 100% 0%, #f6eadc 0%, transparent 50%),
+          radial-gradient(800px 500px at 0% 80%, #faf5e8 0%, transparent 50%),
           var(--sb-bg);
       }
 

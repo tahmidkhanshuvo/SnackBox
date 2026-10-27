@@ -17,29 +17,7 @@ class OrderController extends Controller
     /** Helper: detect staff/admin across common schemas (role field, boolean flags, or staff table) */
     private function isStaff(?User $user): bool
     {
-        if (!$user) return false;
-
-        // Common boolean flags
-        if (isset($user->is_admin) && $user->is_admin) return true;
-        if (isset($user->is_staff) && $user->is_staff) return true;
-
-        // role string patterns
-        $role = strtolower((string) ($user->role ?? ''));
-        if (in_array($role, ['admin','manager','staff'], true)) return true;
-
-        // Relation flag often exposed by API responses (frontend checks user.staff)
-        if (property_exists($user, 'staff') && $user->staff) return true;
-        if (method_exists($user, 'staff') && $user->staff) return true;
-
-        // Fallback: check staff table if it exists
-        try {
-            if (class_exists(\App\Models\Staff::class)) {
-                return \App\Models\Staff::where('user_id', $user->id)->exists();
-            }
-        } catch (\Throwable $e) {
-            // ignore
-        }
-        return false;
+        return $user && ($user->isAdmin() || $user->isStaffApproved());
     }
 
     /**
@@ -51,7 +29,7 @@ class OrderController extends Controller
     {
         $status  = $request->string('status')->toString();
         $q       = $request->string('q')->toString();
-        $perPage = (int) $request->input('per_page', 15);
+        $perPage = max(1, min(100, (int) $request->input('per_page', 15)));
         $user    = $request->user();
         $isStaff = $this->isStaff($user);
 
@@ -124,7 +102,7 @@ class OrderController extends Controller
             'note'                 => ['sometimes','nullable','string','max:1000'], // order-level note (optional)
             'items'                => ['required','array','min:1'],
             'items.*.menu_item_id' => ['required','exists:menu_items,id'],
-            'items.*.quantity'     => ['required','integer','min:1'],
+            'items.*.quantity'     => ['required','integer','min:1','max:99'],
             'items.*.note'         => ['sometimes','nullable','string','max:500'],
             'items.*.addons'       => ['sometimes','nullable','array'],
             'items.*.selections'   => ['sometimes','nullable','array'],
@@ -159,11 +137,12 @@ class OrderController extends Controller
                     throw new \Exception('Invalid menu item or missing price: '.$line['menu_item_id']);
                 }
 
-                // Use client-provided unit_price if present, but never below base DB price
-                $clientUnit = isset($line['unit_price']) ? (float) $line['unit_price'] : null;
-                $unitPrice  = is_null($clientUnit)
-                    ? (float) $menuItem->price
-                    : max((float) $menuItem->price, $clientUnit);
+                if (!$menuItem->availability) {
+                    throw \Illuminate\Validation\ValidationException::withMessages(['items' => ['This menu item is currently unavailable.']]);
+                }
+
+                // Recalculate from the server catalogue and permitted options.
+                $unitPrice = \App\Services\MenuPricing::unitPrice($menuItem, $line);
 
                 $order->items()->create([
                     'menu_item_id' => $line['menu_item_id'],
@@ -198,7 +177,7 @@ class OrderController extends Controller
 
         $data = $request->validate([
             'menu_item_id' => ['required','exists:menu_items,id'],
-            'quantity'     => ['required','integer','min:1'],
+            'quantity'     => ['required','integer','min:1','max:99'],
             'unit_price'   => ['sometimes','numeric','min:0'], // now optional; we’ll clamp below
             'merge'        => ['sometimes','boolean'],
             'note'         => ['sometimes','nullable','string','max:500'],
@@ -213,14 +192,17 @@ class OrderController extends Controller
         if (!$menu || !isset($menu->price)) {
             return response()->json(['message' => 'Invalid menu item.'], 422);
         }
-        $clientUnit = array_key_exists('unit_price', $data) ? (float) $data['unit_price'] : null;
-        $unitPrice  = is_null($clientUnit)
-            ? (float) $menu->price
-            : max((float) $menu->price, $clientUnit);
+        if (!$menu->availability) {
+            return response()->json(['message' => 'This menu item is currently unavailable.'], 422);
+        }
+        $unitPrice = \App\Services\MenuPricing::unitPrice($menu, $data);
 
         $item = $order->items()->where('menu_item_id', $data['menu_item_id'])->first();
 
         if ($item && $merge) {
+            if ($item->quantity + $data['quantity'] > 99) {
+                return response()->json(['message' => 'An order line may contain at most 99 items.'], 422);
+            }
             $item->quantity   += $data['quantity'];
             $item->unit_price  = $unitPrice;
             if (array_key_exists('note', $data))       $item->note = $data['note'];

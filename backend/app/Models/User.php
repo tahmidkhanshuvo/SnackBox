@@ -81,7 +81,7 @@ class User extends Authenticatable
     /** True if the related staff row exists and is active/approved. */
     public function isStaffApproved(): bool
     {
-        return (bool) ($this->staff?->is_active ?? false);
+        return $this->isStaff() && (bool) ($this->staff?->is_active ?? false);
     }
 
     /** Virtual display name: prefer split name when available, fallback to name. */
@@ -97,6 +97,6 @@ class User extends Authenticatable
     public function getAvatarUrlAttribute(): ?string
     {
         $path = (string) ($this->attributes['avatar_path'] ?? '');
-        return $path !== '' ? Storage::disk('public')->url($path) : null;
+        return \App\Services\MediaStorage::url($path);
     }
 }

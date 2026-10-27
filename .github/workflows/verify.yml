@@ -1,0 +1,33 @@
+name: Verify SnackBox
+on: [push, pull_request]
+jobs:
+  api:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: "8.3"
+          extensions: pdo_sqlite, gd, mbstring, intl, zip
+          coverage: none
+      - run: composer install --no-interaction --prefer-dist
+        working-directory: backend
+      - run: cp .env.example .env
+        working-directory: backend
+      - run: php artisan test
+        working-directory: backend
+      - run: php artisan route:cache
+        working-directory: backend
+  frontend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+        working-directory: frontend
+      - run: npm run build
+        working-directory: frontend

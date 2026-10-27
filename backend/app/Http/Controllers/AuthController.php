@@ -17,7 +17,7 @@ class AuthController extends Controller
     protected function augmentUser(User $user)
     {
         $user->load('staff');
-        $url = $user->avatar_path ? Storage::disk('public')->url($user->avatar_path) : null;
+        $url = \App\Services\MediaStorage::url($user->avatar_path);
         $user->setAttribute('avatar_url', $url);
         return $user;
     }
@@ -284,12 +284,7 @@ class AuthController extends Controller
         }
 
         if ($request->hasFile('avatar')) {
-            if ($user->avatar_path && Storage::disk('public')->exists($user->avatar_path)) {
-                Storage::disk('public')->delete($user->avatar_path);
-            }
-            $path = $request->file('avatar')->store('avatars', 'public');
-            $user->avatar_path = $path;
-            $user->save();
+            \App\Services\MediaStorage::replace($user, 'avatar_path', $request->file('avatar'));
         }
 
         $user = $this->augmentUser($user);

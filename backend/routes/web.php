@@ -22,6 +22,7 @@ Route::get('/healthz', fn () =>
 
 // TEMP: check resolved DB config at runtime (remove after debugging)
 Route::get('/env-check', function () {
+    abort_unless(app()->environment('local'), 404);
     $conn = config('database.default');
     $cfg  = config("database.connections.$conn") ?? [];
     return response()->json([

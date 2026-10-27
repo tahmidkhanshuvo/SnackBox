@@ -7,26 +7,41 @@ import {
   CategoryStrip,
   ProductCard,
 } from "../../components/UI";
-import { listMenuItems } from "../../api/api"; // <-- uses our API helper
+import { listMenuItems, listMenuCategories } from "../../api/api";
 import { useCart } from "../../context/CartContext.jsx";
 
 // --- hero slides (unchanged) ---
 const slides = [
-  { img: "https://images.unsplash.com/photo-1550547660-d9450f859349?q=80&w=2000", title: "Flat 40% OFF • Weekend Feast", sub: "Grab sizzling deals on your favorites. Limited time only.", cta: "Order now" },
-  { img: "https://images.unsplash.com/photo-1540189549336-e6e99c3679fe?q=80&w=2000", title: "Fresh & Fit", sub: "Salads and bowls crafted for your goals.", cta: "Explore healthy" },
-  { img: "https://images.unsplash.com/photo-1595267836652-65c7a027f256?q=80&w=2000", title: "Sweet Indulgence", sub: "Desserts that make your day.", cta: "Treat yourself" },
+  {
+    img: "https://images.unsplash.com/photo-1550547660-d9450f859349?q=80&w=2000",
+    title: "Your break, made better.",
+    sub: "Good food. Your favourites. One happy little box.",
+    cta: "Explore the menu",
+  },
+  {
+    img: "https://images.unsplash.com/photo-1540189549336-e6e99c3679fe?q=80&w=2000",
+    title: "Fresh & Fit",
+    sub: "Salads and bowls crafted for your goals.",
+    cta: "Explore healthy",
+  },
+  {
+    img: "https://images.unsplash.com/photo-1595267836652-65c7a027f256?q=80&w=2000",
+    title: "Sweet Indulgence",
+    sub: "Desserts that make your day.",
+    cta: "Treat yourself",
+  },
 ];
 
 // --- categories (keys should match your backend categories if you filter there) ---
-const categories = [
+const categoryIcons = [
   { key: "burger", name: "Burgers", icon: "🍔" },
-  { key: "pizza",  name: "Pizza",   icon: "🍕" },
-  { key: "sushi",  name: "Sushi",   icon: "🍣" },
-  { key: "coffee", name: "Coffee",  icon: "☕"  },
-  { key: "cake",   name: "Dessert", icon: "🍰" },
-  { key: "salad",  name: "Salads",  icon: "🥗"  },
-  { key: "bowl",   name: "Bowls",   icon: "🥣"  },
-  { key: "wrap",   name: "Wraps",   icon: "🌯"  },
+  { key: "pizza", name: "Pizza", icon: "🍕" },
+  { key: "sushi", name: "Sushi", icon: "🍣" },
+  { key: "coffee", name: "Coffee", icon: "☕" },
+  { key: "cake", name: "Dessert", icon: "🍰" },
+  { key: "salad", name: "Salads", icon: "🥗" },
+  { key: "bowl", name: "Bowls", icon: "🥣" },
+  { key: "wrap", name: "Wraps", icon: "🌯" },
 ];
 
 // map API resource -> card shape expected by ProductCard
@@ -35,13 +50,36 @@ const toCard = (x) => ({
   title: x?.name || x?.item_name || "Menu item",
   img: x?.image_url || x?.image || null,
   price: typeof x?.price === "number" ? x.price : Number(x?.price ?? 0),
-  rating: typeof x?.rating === "number" ? x.rating : 4.6,
-  time: x?.preparation_time || x?.prep_time || "20–30 min",
+  available: x?.availability !== false,
+  rating: typeof x?.rating === "number" ? x.rating : null,
+  time: x?.preparation_time || x?.prep_time || "",
   badge: x?.availability === false ? "Unavailable" : undefined,
 });
 
 export default function Home({ openProduct, openProfile }) {
   const { addItem } = useCart(); // <-- NEW
+  const [categories, setCategories] = useState([]);
+  useEffect(() => {
+    let active = true;
+    listMenuCategories()
+      .then((names) => {
+        if (active)
+          setCategories(
+            names.map((name) => ({
+              key: name,
+              name,
+              icon:
+                categoryIcons.find((item) =>
+                  name.toLowerCase().includes(item.key),
+                )?.icon || "🍽️",
+            })),
+          );
+      })
+      .catch(() => {});
+    return () => {
+      active = false;
+    };
+  }, []);
 
   // ------- filters & pagination -------
   const [page, setPage] = useState(1);
@@ -66,38 +104,55 @@ export default function Home({ openProduct, openProfile }) {
           q,
           category: category || undefined, // omit if blank
           per_page: 12,
-          sortBy: 'item_name',
-          sortDir: 'asc',
+          sortBy: "item_name",
+          sortDir: "asc",
         });
         if (!alive) return;
         setItems((items || []).map(toCard));
         setMeta(meta || null);
       } catch (e) {
         if (!alive) return;
-        setErr(e?.response?.data?.message || e?.message || "Failed to load menu.");
+        setErr(
+          e?.response?.data?.message || e?.message || "Failed to load menu.",
+        );
       } finally {
         if (alive) setLoading(false);
       }
     })();
-    return () => { alive = false; };
+    return () => {
+      alive = false;
+    };
   }, [page, q, category]);
 
   // ------- callbacks -------
-  const handleSearch = (text) => { setPage(1); setQ(text.trim()); };
-  const handlePick = (key) => { setPage(1); setCategory(key === category ? "" : key); };
+  const handleSearch = (text) => {
+    setPage(1);
+    setQ(text.trim());
+  };
+  const handlePick = (key) => {
+    setPage(1);
+    setCategory(key === category ? "" : key);
+  };
 
   // Quick-add from card (1 qty, no options). If an item needs options, route to details instead from the card's "Details" button.
   const addFromCard = (m) => {
-    const id    = m.id;
-    const name  = m.title || "Item";
-    const img   = m.img || null;
+    const id = m.id;
+    const name = m.title || "Item";
+    const img = m.img || null;
     const price = Number(m.price || 0);
 
     addItem({
-      id, name, img, qty: 1, price,
-      unitDelta: 0, unitTotal: price,
-      selections: {}, addons: {},
-      pricedSelections: [], pricedAddons: [],
+      id,
+      name,
+      img,
+      qty: 1,
+      price,
+      unitDelta: 0,
+      unitTotal: price,
+      selections: {},
+      addons: {},
+      pricedSelections: [],
+      pricedAddons: [],
       notes: "",
     });
   };
@@ -107,12 +162,18 @@ export default function Home({ openProduct, openProfile }) {
   // simple derived label
   const sectionTitle = useMemo(() => {
     if (q) return `Results for “${q}”`;
-    if (category) return categories.find(c => c.key === category)?.name || "Popular near you";
-    return "Popular near you";
+    if (category)
+      return (
+        categories.find((c) => c.key === category)?.name ||
+        "Fresh from the menu"
+      );
+    return "Fresh from the menu";
   }, [q, category]);
 
   const canPrev = (meta?.current_page ?? 1) > 1 && !loading;
-  const canNext = meta?.last_page ? (meta.current_page < meta.last_page && !loading) : !loading;
+  const canNext = meta?.last_page
+    ? meta.current_page < meta.last_page && !loading
+    : false;
 
   // ------- UI -------
   return (
@@ -120,26 +181,76 @@ export default function Home({ openProduct, openProfile }) {
       <CustomerTheme />
 
       <main className="sb-shell">
-        <OfferSlider slides={slides} onCta={(s) => console.log("CTA:", s)} />
+        <OfferSlider
+          slides={slides}
+          onCta={() =>
+            document
+              .getElementById("menu-search")
+              ?.scrollIntoView({ behavior: "smooth" })
+          }
+        />
+        <div id="menu-search" style={{ scrollMarginTop: 90 }} />
         <SearchBar onSearch={handleSearch} />
-        <CategoryStrip categories={categories} onPick={handlePick} activeKey={category} />
+        <CategoryStrip
+          categories={categories}
+          onPick={handlePick}
+          activeKey={category}
+        />
 
         <section style={{ marginTop: 6 }}>
-          <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", marginBottom: 12 }}>
-            <h3 style={{ margin: 0, fontSize: "1.25rem", fontWeight: 900, color: "var(--sb-accent)" }}>
+          <div
+            style={{
+              display: "flex",
+              alignItems: "flex-end",
+              justifyContent: "space-between",
+              marginBottom: 12,
+            }}
+          >
+            <h3
+              style={{
+                margin: 0,
+                fontSize: "1.25rem",
+                fontWeight: 900,
+                color: "var(--sb-accent)",
+              }}
+            >
               {sectionTitle}
             </h3>
 
             {/* tiny pager */}
             <div style={{ display: "flex", gap: 8 }}>
-              <button className="sb-pill" disabled={!canPrev} onClick={() => setPage(p => Math.max(1, p - 1))}>Prev</button>
-              <button className="sb-pill" disabled={!canNext} onClick={() => setPage(p => (meta?.last_page ? Math.min(meta.last_page, p + 1) : p + 1))}>Next</button>
+              <button
+                className="sb-pill"
+                disabled={!canPrev}
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+              >
+                Prev
+              </button>
+              <button
+                className="sb-pill"
+                disabled={!canNext}
+                onClick={() =>
+                  setPage((p) =>
+                    meta?.last_page ? Math.min(meta.last_page, p + 1) : p + 1,
+                  )
+                }
+              >
+                Next
+              </button>
             </div>
           </div>
 
           {/* states */}
           {err ? (
-            <div style={{ padding: 16, borderRadius: 12, background: "#fff1f1", color: "#b91c1c", fontWeight: 700 }}>
+            <div
+              style={{
+                padding: 16,
+                borderRadius: 12,
+                background: "#fff1f1",
+                color: "#b91c1c",
+                fontWeight: 700,
+              }}
+            >
               {err}
             </div>
           ) : null}
@@ -147,13 +258,27 @@ export default function Home({ openProduct, openProfile }) {
           {loading && !items.length ? (
             <div className="sb-grid">
               {Array.from({ length: 6 }).map((_, i) => (
-                <div key={i} style={{ height: 260, borderRadius: 16, background: "rgba(15,23,42,0.05)" }} />
+                <div
+                  key={i}
+                  style={{
+                    height: 260,
+                    borderRadius: 16,
+                    background: "rgba(15,23,42,0.05)",
+                  }}
+                />
               ))}
             </div>
           ) : null}
 
           {!loading && !err && !items.length ? (
-            <div style={{ padding: 16, borderRadius: 12, background: "rgba(15,23,42,.04)", fontWeight: 700 }}>
+            <div
+              style={{
+                padding: 16,
+                borderRadius: 12,
+                background: "rgba(15,23,42,.04)",
+                fontWeight: 700,
+              }}
+            >
               No items found.
             </div>
           ) : null}
@@ -161,7 +286,12 @@ export default function Home({ openProduct, openProfile }) {
           {/* product grid */}
           <div className="sb-grid">
             {items.map((m) => (
-              <ProductCard key={m.id} item={m} onAdd={addFromCard} onDetails={details} />
+              <ProductCard
+                key={m.id}
+                item={m}
+                onAdd={addFromCard}
+                onDetails={details}
+              />
             ))}
           </div>
 

@@ -14,9 +14,9 @@ RUN composer install --no-dev --no-interaction --prefer-dist --optimize-autoload
 FROM php:8.3-cli-alpine AS app
 WORKDIR /var/www/html
 
-RUN apk add --no-cache bash icu-dev oniguruma-dev libzip-dev $PHPIZE_DEPS \
+RUN apk add --no-cache bash icu-dev oniguruma-dev libzip-dev postgresql-dev $PHPIZE_DEPS \
   && docker-php-ext-configure intl \
-  && docker-php-ext-install -j"$(nproc)" pdo_mysql intl mbstring zip bcmath exif opcache \
+  && docker-php-ext-install -j"$(nproc)" pdo_mysql pdo_pgsql intl mbstring zip bcmath exif opcache \
   && rm -rf /var/cache/apk/*
 
 # App code + vendor
@@ -35,36 +35,14 @@ RUN addgroup -g 1000 laravel && adduser -u 1000 -G laravel -D laravel \
 RUN php artisan package:discover --ansi || true
 
 # Create public/storage symlink at build time
-RUN [ -L public/storage ] || ln -s storage/app/public public/storage || true
+RUN [ -L public/storage ] || ln -s ../storage/app/public public/storage
 
 ENV PORT=10000 \
     APP_ENV=production \
     APP_DEBUG=false \
-    PHP_OPCACHE_VALIDATE_TIMESTAMPS=0 \
-    RESET_DB=0 \
-    SEED=0
+    PHP_OPCACHE_VALIDATE_TIMESTAMPS=0
 
 EXPOSE 10000
 USER laravel
 
-# ---- Startup ----
-CMD ["/bin/sh","-lc", "\
-  [ -f .env ] || cp .env.example .env; \
-  grep -q '^APP_KEY=base64' .env || php artisan key:generate --force --ansi; \
-  php artisan optimize:clear || true; \
-  php artisan config:clear   || true; \
-  php artisan route:clear    || true; \
-  php artisan cache:clear    || true; \
-  php artisan config:cache   || true; \
-  php artisan route:cache    || true; \
-  if [ ! -L public/storage ]; then rm -rf public/storage 2>/dev/null || true; ln -s storage/app/public public/storage || true; fi; \
-  for i in $(seq 1 30); do php artisan migrate:status --no-ansi >/dev/null 2>&1 && break; echo \"Waiting for DB ($i/30)...\"; sleep 2; done; \
-  if [ \"${RESET_DB}\" = \"1\" ]; then \
-    echo 'RESET_DB=1 → php artisan migrate:fresh --seed --force'; \
-    php artisan migrate:fresh --seed --force; \
-  else \
-    php artisan migrate --force; \
-    if [ \"${SEED}\" = \"1\" ]; then php artisan db:seed --force; fi; \
-  fi; \
-  php artisan serve --host=0.0.0.0 --port=${PORT} \
-"]
+CMD ["/bin/sh", "docker-entrypoint.sh"]

@@ -21,6 +21,8 @@ class ComplaintController extends Controller
         $perPage  = (int) $request->input('per_page', 15);
 
         $query = Complaint::query()->with(['user:id,name,email', 'handler:id,first_name,last_name']);
+        $user = $request->user();
+        if (!$user->isAdmin() && !$user->isStaffApproved()) $query->where('user_id', $user->id);
 
         if (in_array($status, ['Pending','Assigned','Resolved'], true)) {
             $query->where('status', $status);
@@ -28,7 +30,7 @@ class ComplaintController extends Controller
         if ($userId)   $query->where('user_id', $userId);
         if ($handler)  $query->where('handled_by', $handler);
         if ($q !== '') $query->where(function ($w) use ($q) {
-            $w->where('complaint_text','like',"%{$q}%")
+            $w->where('message','like',"%{$q}%")
               ->orWhere('response','like',"%{$q}%");
         });
 
@@ -43,12 +45,15 @@ class ComplaintController extends Controller
     public function store(Request $request)
     {
         $data = $request->validate([
-            'complaint_text' => ['required','string'],
+            'complaint_text' => ['required_without:message','string','max:5000'],
+            'message' => ['required_without:complaint_text','string','max:5000'],
+            'subject' => ['sometimes','string','max:255'],
         ]);
 
         $complaint = Complaint::create([
             'user_id' => optional($request->user())->id,
-            'complaint_text' => $data['complaint_text'],
+            'subject' => $data['subject'] ?? 'Customer feedback',
+            'message' => $data['complaint_text'] ?? $data['message'],
             'status'  => 'Pending',
         ]);
 
@@ -103,7 +108,8 @@ class ComplaintController extends Controller
         }
 
         $complaint->status = 'Resolved';
-        if ($data['response']) {
+        $complaint->resolved_at = now();
+        if (!empty($data['response'])) {
             $complaint->response = $data['response'];
         }
         $complaint->save();

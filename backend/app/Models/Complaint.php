@@ -8,6 +8,8 @@ use Illuminate\Database\Eloquent\Model;
 class Complaint extends Model
 {
     use HasFactory;
+    protected $appends = ['complaint_text'];
+    public function getComplaintTextAttribute(): string { return (string) $this->message; }
 
     protected $fillable = [
         'user_id',

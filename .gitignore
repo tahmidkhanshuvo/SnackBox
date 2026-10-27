@@ -49,3 +49,5 @@ frontend/.env
 
 # General
 .env
+.env.local
+.env.*.local

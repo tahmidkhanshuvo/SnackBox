@@ -69,9 +69,7 @@ class MenuItem extends Model
     public function imageUrl(): Attribute
     {
         return Attribute::get(function () {
-            return $this->image_path
-                ? Storage::disk('public')->url($this->image_path)
-                : null;
+            return \App\Services\MediaStorage::url($this->image_path);
         });
     }
 }

@@ -1,0 +1,67 @@
+/* A warm, compact canteen identity shared by the existing customer screens. */
+.sb-page {
+  font-family:
+    Inter,
+    system-ui,
+    -apple-system,
+    sans-serif !important;
+}
+.sb-shell {
+  width: 100%;
+  max-width: 1240px !important;
+}
+.sb-page h1,
+.sb-page h2,
+.sb-page h3,
+.sb-page h4 {
+  letter-spacing: -0.035em;
+}
+.sb-pc {
+  box-shadow: 0 3px 15px #291b0b08 !important;
+  border-color: #e9e3d7 !important;
+  transition:
+    transform 0.2s,
+    box-shadow 0.2s;
+}
+.sb-pc:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 10px 25px #291b0b10 !important;
+}
+.sb-pc-media {
+  height: 190px !important;
+}
+.sb-pc-title {
+  font-weight: 700 !important;
+}
+.sb-pc-body {
+  padding: 18px !important;
+}
+.sb-btn,
+.sb-pill {
+  font-family: inherit !important;
+}
+.sb-btn--primary {
+  background: #b74c30 !important;
+  border-radius: 30px !important;
+}
+.sb-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+.sb-pill {
+  font-size: 12px;
+}
+.sb-page :focus-visible {
+  outline: 2px solid #b74c30;
+  outline-offset: 4px;
+}
+.sb-page button {
+  min-height: 40px;
+}
+@media (prefers-reduced-motion: reduce) {
+  .sb-page * {
+    animation: none !important;
+    transition: none !important;
+    scroll-behavior: auto !important;
+  }
+}

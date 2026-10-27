@@ -25,6 +25,21 @@ import Dashboard from "./pages/admin/Dashboard.jsx";
 import Users from "./pages/admin/Users.jsx";
 import AdminMenu from "./pages/admin/Menu.jsx";
 import AdminOrders from "./pages/admin/Orders.jsx";
+import AboutUs from "./pages/footer/AboutUs.jsx";
+import FAQ from "./pages/footer/FAQ.jsx";
+import PrivacyPolicy from "./pages/footer/PrivacyPolicy.jsx";
+import TermsAndConditions from "./pages/footer/TermsAndConditions.jsx";
+const PUBLIC_PAGES = {
+  "/about": AboutUs,
+  "/help": FAQ,
+  "/privacy": PrivacyPolicy,
+  "/terms": TermsAndConditions,
+};
+const isPublicPath = (path) =>
+  path === "/" ||
+  path.startsWith("/product/") ||
+  path === "/cart" ||
+  Object.hasOwn(PUBLIC_PAGES, path);
 
 /* ================== local helpers ================== */
 
@@ -59,7 +74,11 @@ const Toast = ({ message, onClose, duration = 3000 }) => {
     return () => clearTimeout(t.current);
   }, [onClose, duration]);
   return (
-    <div style={{ position: "fixed", top: 16, right: 16, zIndex: 50 }} role="status" aria-live="polite">
+    <div
+      style={{ position: "fixed", top: 16, right: 16, zIndex: 50 }}
+      role="status"
+      aria-live="polite"
+    >
       <div
         style={{
           background: "rgba(17, 24, 39, 0.92)",
@@ -73,7 +92,13 @@ const Toast = ({ message, onClose, duration = 3000 }) => {
         {message}{" "}
         <button
           onClick={onClose}
-          style={{ marginLeft: 8, background: "transparent", border: "none", color: "#a5b4fc", cursor: "pointer" }}
+          style={{
+            marginLeft: 8,
+            background: "transparent",
+            border: "none",
+            color: "#a5b4fc",
+            cursor: "pointer",
+          }}
         >
           ×
         </button>
@@ -84,7 +109,7 @@ const Toast = ({ message, onClose, duration = 3000 }) => {
 
 const getPath = () => window.location.pathname || "/";
 const navigate = (path) => {
-  if (getPath() !== path) window.history.replaceState({}, "", path);
+  if (getPath() !== path) window.history.pushState({}, "", path);
 };
 const scrollTop = () => {
   try {
@@ -97,18 +122,21 @@ const scrollTop = () => {
 // Normalize any backend payload shape into a plain user object (or null)
 const normalizeUser = (raw) => raw?.user ?? raw?.data ?? raw ?? null;
 const isOkCustomerPath = (p) =>
-  p === "/" || p.startsWith("/product/") || p === "/profile" || p === "/cart" || p === "/orders";
+  isPublicPath(p) || p === "/profile" || p === "/orders";
 
 /* ================== sub routers ================== */
 
 function StaffRouter({ route, user, goto, onLogout }) {
   const sub = route.replace(/^\/staff\/?/, "");
   const cleanId = (raw) => {
-    const id = String(raw || "").split("?")[0].replace(/\/+$/, "");
+    const id = String(raw || "")
+      .split("?")[0]
+      .replace(/\/+$/, "");
     return /^\d+$/.test(id) ? id : null;
   };
 
-  if (sub === "" || sub === "dashboard") return <StaffDashboard user={user} goto={goto} onLogout={onLogout} />;
+  if (sub === "" || sub === "dashboard")
+    return <StaffDashboard user={user} goto={goto} onLogout={onLogout} />;
   if (sub === "orders") return <StaffOrders goto={goto} />;
   if (sub.startsWith("orders/")) {
     const id = cleanId(sub.split("/")[1]);
@@ -117,7 +145,9 @@ function StaffRouter({ route, user, goto, onLogout }) {
         <div className="page-container">
           <div className="dashboard-container">
             <h2>Invalid order URL</h2>
-            <button onClick={() => goto("/staff/orders")}>Back to Orders</button>
+            <button onClick={() => goto("/staff/orders")}>
+              Back to Orders
+            </button>
           </div>
         </div>
       );
@@ -143,13 +173,16 @@ function StaffRouter({ route, user, goto, onLogout }) {
   }
   if (sub === "shifts") return <StaffShifts goto={goto} />;
   if (sub === "salaries") return <StaffSalaries goto={goto} />;
-  if (sub === "profile") return <StaffProfile user={user} goto={goto} onLogout={onLogout} />;
+  if (sub === "profile")
+    return <StaffProfile user={user} goto={goto} onLogout={onLogout} />;
 
   return (
     <div className="page-container">
       <div className="dashboard-container">
         <h2>Not found</h2>
-        <button onClick={() => goto("/staff/dashboard")}>Go to Staff Dashboard</button>
+        <button onClick={() => goto("/staff/dashboard")}>
+          Go to Staff Dashboard
+        </button>
       </div>
     </div>
   );
@@ -158,7 +191,8 @@ function StaffRouter({ route, user, goto, onLogout }) {
 function AdminRouter({ route, user, goto, onLogout }) {
   const sub = route.replace(/^\/admin\/?/, "");
 
-  if (sub === "" || sub === "dashboard") return <Dashboard user={user} goto={goto} onLogout={onLogout} />;
+  if (sub === "" || sub === "dashboard")
+    return <Dashboard user={user} goto={goto} onLogout={onLogout} />;
   if (sub === "users") return <Users goto={goto} />;
   if (sub === "menu") return <AdminMenu goto={goto} />;
   if (sub === "orders") return <AdminOrders goto={goto} />;
@@ -167,7 +201,9 @@ function AdminRouter({ route, user, goto, onLogout }) {
     <div className="page-container">
       <div className="dashboard-container">
         <h2>Not found</h2>
-        <button onClick={() => goto("/admin/dashboard")}>Go to Admin Dashboard</button>
+        <button onClick={() => goto("/admin/dashboard")}>
+          Go to Admin Dashboard
+        </button>
       </div>
     </div>
   );
@@ -198,7 +234,7 @@ export default function App() {
   useEffect(() => {
     (async () => {
       try {
-        const meRaw = await getMe();           // returns null (not throw) when 401
+        const meRaw = await getMe(); // returns null (not throw) when 401
         const me = normalizeUser(meRaw);
         setUser(me);
 
@@ -207,7 +243,7 @@ export default function App() {
         if (!me) {
           // unauthenticated — send to the right login screen
           if (p.startsWith("/admin")) goto("/admin/login");
-          else goto("/login");
+          else if (!isPublicPath(p) && p !== "/login") goto("/login");
           return;
         }
 
@@ -217,7 +253,13 @@ export default function App() {
         if (isStaff) {
           goto(p.startsWith("/staff") ? p : "/staff/dashboard");
         } else if (role === "admin") {
-          goto(p === "/admin/login" ? "/admin/dashboard" : (p.startsWith("/admin") ? p : "/admin/dashboard"));
+          goto(
+            p === "/admin/login"
+              ? "/admin/dashboard"
+              : p.startsWith("/admin")
+                ? p
+                : "/admin/dashboard",
+          );
         } else {
           goto(isOkCustomerPath(p) ? p : "/");
         }
@@ -226,7 +268,7 @@ export default function App() {
         console.error("Boot error:", err);
         const p = getPath();
         if (p.startsWith("/admin")) goto("/admin/login");
-        else goto("/login");
+        else if (!isPublicPath(p) && p !== "/login") goto("/login");
       } finally {
         setBooting(false);
       }
@@ -240,7 +282,12 @@ export default function App() {
 
     if (!user) {
       // Unauthed: default to customer/staff login; allow explicit admin login page
-      if (route !== "/login" && route !== "/admin/login") goto("/login");
+      if (
+        !isPublicPath(route) &&
+        route !== "/login" &&
+        route !== "/admin/login"
+      )
+        goto("/login");
       return;
     }
 
@@ -253,7 +300,8 @@ export default function App() {
     }
 
     if (role === "admin") {
-      if (route === "/admin/login" || !route.startsWith("/admin")) goto("/admin/dashboard");
+      if (route === "/admin/login" || !route.startsWith("/admin"))
+        goto("/admin/dashboard");
       return;
     }
 
@@ -262,8 +310,6 @@ export default function App() {
   }, [user, route, booting]);
 
   const handleLoginSuccess = (response) => {
-    console.log("Login success payload:", response);
-
     // If a token is returned, attach and re-fetch canonical user
     if (response?.token) {
       localStorage.setItem("token", response.token);
@@ -277,10 +323,18 @@ export default function App() {
           const isStaff = !!me?.staff;
 
           const dest = isStaff
-            ? (p.startsWith("/staff") ? p : "/staff/dashboard")
+            ? p.startsWith("/staff")
+              ? p
+              : "/staff/dashboard"
             : role === "admin"
-            ? (p.startsWith("/admin") ? (p === "/admin/login" ? "/admin/dashboard" : p) : "/admin/dashboard")
-            : (isOkCustomerPath(p) ? p : "/");
+              ? p.startsWith("/admin")
+                ? p === "/admin/login"
+                  ? "/admin/dashboard"
+                  : p
+                : "/admin/dashboard"
+              : isOkCustomerPath(p)
+                ? p
+                : "/";
           goto(dest);
           setToastMsg(`Welcome, ${me?.name || "User"}!`);
         })
@@ -296,10 +350,18 @@ export default function App() {
     const isStaff = !!me?.staff;
 
     const dest = isStaff
-      ? (p.startsWith("/staff") ? p : "/staff/dashboard")
+      ? p.startsWith("/staff")
+        ? p
+        : "/staff/dashboard"
       : role === "admin"
-      ? (p.startsWith("/admin") ? (p === "/admin/login" ? "/admin/dashboard" : p) : "/admin/dashboard")
-      : (isOkCustomerPath(p) ? p : "/");
+        ? p.startsWith("/admin")
+          ? p === "/admin/login"
+            ? "/admin/dashboard"
+            : p
+          : "/admin/dashboard"
+        : isOkCustomerPath(p)
+          ? p
+          : "/";
     goto(dest);
     setToastMsg(`Welcome, ${me?.name || "User"}!`);
   };
@@ -326,7 +388,12 @@ export default function App() {
     setToastMsg("Signed out successfully.");
   };
 
-  if (booting) return <div className="page-container"><h2>Loading...</h2></div>;
+  if (booting)
+    return (
+      <div className="page-container">
+        <h2>Loading...</h2>
+      </div>
+    );
 
   const openProduct = (id) => goto(`/product/${id}`);
   const openProfile = () => goto("/profile");
@@ -338,22 +405,40 @@ export default function App() {
       <CartProvider>
         <Layout user={user} onLogout={handleLogout}>
           {/* Unauthenticated */}
-          {!user && route === "/login" && <LoginPage onLoginSuccess={handleLoginSuccess} />}
-          {!user && route === "/admin/login" && <AdminLogin onLoginSuccess={handleLoginSuccess} />}
+          {!user && route === "/login" && (
+            <LoginPage onLoginSuccess={handleLoginSuccess} />
+          )}
+          {!user && route === "/admin/login" && (
+            <AdminLogin onLoginSuccess={handleLoginSuccess} />
+          )}
 
           {/* Staff area */}
           {user && user.staff && (
-            <StaffRouter route={route} user={user} goto={goto} onLogout={handleLogout} />
+            <StaffRouter
+              route={route}
+              user={user}
+              goto={goto}
+              onLogout={handleLogout}
+            />
           )}
 
           {/* Admin area */}
           {user && String(user.role || "").toLowerCase() === "admin" && (
-            <AdminRouter route={route} user={user} goto={goto} onLogout={handleLogout} />
+            <AdminRouter
+              route={route}
+              user={user}
+              goto={goto}
+              onLogout={handleLogout}
+            />
           )}
 
           {/* Customer area */}
-          {user && !user.staff && String(user.role || "").toLowerCase() !== "admin" && (
+          {(!user ||
+            (!user.staff &&
+              String(user.role || "").toLowerCase() !== "admin")) && (
             <>
+              {Object.hasOwn(PUBLIC_PAGES, route) &&
+                React.createElement(PUBLIC_PAGES[route])}
               {route === "/" && (
                 <Home
                   onLogout={handleLogout}
@@ -383,7 +468,9 @@ export default function App() {
                   onProfile={() => goto("/profile")}
                 />
               )}
-              {route === "/orders" && <CustomerOrders goHome={() => goto("/")} />}
+              {route === "/orders" && (
+                <CustomerOrders goHome={() => goto("/")} />
+              )}
             </>
           )}
         </Layout>

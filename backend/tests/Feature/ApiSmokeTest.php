@@ -21,12 +21,14 @@ class ApiSmokeTest extends TestCase
         $user = User::factory()->create([
             'email' => 'admin@snackbox.test',
             'password' => bcrypt('secret123'),
+            'role' => 'admin',
         ]);
         Sanctum::actingAs($user, abilities: ['*']);
 
         // 1) Create a menu item
         $itemRes = $this->postJson('/api/menu-items', [
             'item_name'    => 'Chicken Sandwich',
+            'price'        => 120,
             'category'     => 'Snacks',
             'availability' => true,
         ])->assertCreated();
@@ -96,7 +98,7 @@ class ApiSmokeTest extends TestCase
         // 9) Complaint
         $complaintRes = $this->postJson('/api/complaints', [
             'subject' => 'Cold food',
-            'message' => 'Soup was cold on arrival.',
+            'complaint_text' => 'Soup was cold on arrival.',
         ])->assertCreated();
         $complaintId = $complaintRes->json('id');
 
@@ -105,6 +107,6 @@ class ApiSmokeTest extends TestCase
 
         $this->patchJson("/api/complaints/{$complaintId}/resolve", [
             'response' => 'Sorry about that — we will improve.',
-        ])->assertOk()->assertJsonPath('status', 'resolved');
+        ])->assertOk()->assertJsonPath('status', 'Resolved');
     }
 }

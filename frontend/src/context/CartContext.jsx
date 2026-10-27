@@ -1,5 +1,12 @@
 // src/context/CartContext.jsx
-import React, { createContext, useContext, useEffect, useMemo, useRef, useState } from "react";
+import React, {
+  createContext,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import apiClient, { ensureCsrf } from "../api/api";
 
 /**
@@ -23,11 +30,17 @@ const STORAGE_KEY = "sb.cart.v1";
 
 /* ---------- utilities ---------- */
 function serializeConfig(line) {
-  const selPairs = Object.entries(line?.selections || {}).sort(([a],[b]) => a.localeCompare(b));
+  const selPairs = Object.entries(line?.selections || {}).sort(([a], [b]) =>
+    a.localeCompare(b),
+  );
   const addPairs = Object.entries(line?.addons || {})
     .map(([k, arr]) => [k, [...(arr || [])].sort()])
-    .sort(([a],[b]) => a.localeCompare(b));
-  return JSON.stringify({ s: selPairs, a: addPairs });
+    .sort(([a], [b]) => a.localeCompare(b));
+  return JSON.stringify({
+    s: selPairs,
+    a: addPairs,
+    n: String(line?.notes || "").trim(),
+  });
 }
 function makeLineId(line) {
   return `${line.id}::${serializeConfig(line)}`;
@@ -60,29 +73,26 @@ function computeTotals(lines) {
 
 /* ---------- provider ---------- */
 export function CartProvider({ children }) {
-  const [lines, setLines] = useState([]);
-  const firstLoad = useRef(true);
-
-  // Load from localStorage once
-  useEffect(() => {
+  const [lines, setLines] = useState(() => {
     try {
       const raw = localStorage.getItem(STORAGE_KEY);
       if (raw) {
         const parsed = JSON.parse(raw);
         if (Array.isArray(parsed)) {
-          setLines(parsed.map((l) => ({
-            ...l,
-            qty: clampQty(l.qty),
-          })));
+          return parsed
+            .filter((l) => l && l.id != null)
+            .map((l) => ({
+              ...l,
+              qty: clampQty(l.qty),
+            }));
         }
       }
     } catch {}
-    firstLoad.current = false;
-  }, []);
+    return [];
+  });
 
   // Persist to localStorage
   useEffect(() => {
-    if (firstLoad.current) return;
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(lines));
     } catch {}
@@ -98,14 +108,18 @@ export function CartProvider({ children }) {
    * Accepts optional priced breakdown arrays so the Cart page can show amounts.
    */
   const addItem = (partial, { merge = true } = {}) => {
-    const pricedSelections = Array.isArray(partial.pricedSelections) ? partial.pricedSelections : [];
-    const pricedAddons = Array.isArray(partial.pricedAddons) ? partial.pricedAddons : [];
+    const pricedSelections = Array.isArray(partial.pricedSelections)
+      ? partial.pricedSelections
+      : [];
+    const pricedAddons = Array.isArray(partial.pricedAddons)
+      ? partial.pricedAddons
+      : [];
 
     // derive delta if not explicitly supplied
     const derivedDelta =
       partial.unitDelta != null
         ? Number(partial.unitDelta)
-        : (sumPriced(pricedSelections) + sumPriced(pricedAddons));
+        : sumPriced(pricedSelections) + sumPriced(pricedAddons);
 
     const line = {
       id: partial.id,
@@ -134,7 +148,9 @@ export function CartProvider({ children }) {
   };
 
   const updateQty = (lineId, qty) => {
-    setLines((prev) => prev.map((l) => (l.lineId === lineId ? { ...l, qty: clampQty(qty) } : l)));
+    setLines((prev) =>
+      prev.map((l) => (l.lineId === lineId ? { ...l, qty: clampQty(qty) } : l)),
+    );
   };
 
   const removeItem = (lineId) => {
@@ -157,11 +173,11 @@ export function CartProvider({ children }) {
     const items = lines.map((l) => ({
       menu_item_id: l.id,
       quantity: clampQty(l.qty),
-      unit_price: lineUnitTotal(l),      // base + options/addons
-      base_price: Number(l.price || 0),  // optional for server
+      unit_price: lineUnitTotal(l), // base + options/addons
+      base_price: Number(l.price || 0), // optional for server
       selections: l.selections || {},
       addons: l.addons || {},
-      notes: l.notes || "",
+      note: l.notes || "",
     }));
 
     const payload = { items, note: order_note };

@@ -12,7 +12,23 @@ use App\Http\Controllers\ShiftController;
 use App\Http\Controllers\AdminController;
 use Laravel\Sanctum\Http\Middleware\EnsureFrontendRequestsAreStateful;
 
-Route::get('/healthz', fn () => response()->json(['ok' => true, 'time' => now()]));
+Route::get('/healthz', function () {
+    try {
+        \Illuminate\Support\Facades\DB::select('SELECT 1');
+        return response()->json(['ok' => true, 'database' => 'connected']);
+    } catch (\Throwable $error) {
+        return response()->json(['ok' => false, 'database' => 'unavailable'], 503);
+    }
+});
+Route::get('/media/{id}', function (string $id) {
+    $asset = \Illuminate\Support\Facades\DB::table('media_assets')->where('id', $id)->first();
+    abort_unless($asset, 404);
+    return response(base64_decode($asset->content_base64), 200, [
+        'Content-Type' => $asset->mime_type,
+        'Cache-Control' => 'public, max-age=31536000, immutable',
+        'X-Content-Type-Options' => 'nosniff',
+    ]);
+})->whereUuid('id');
 
 /*
 |---------------------------------------------------------------------------
@@ -37,6 +53,7 @@ Route::post('/token-logout',   [AuthController::class, 'tokenLogout'])
 |---------------------------------------------------------------------------
 */
 Route::get('/menu-items', [MenuItemController::class, 'index']);
+Route::get('/menu-categories', fn () => \App\Models\MenuItem::query()->whereNotNull('category')->where('category', '!=', '')->distinct()->orderBy('category')->pluck('category'));
 Route::get('/menu-items/{menuItem}', [MenuItemController::class, 'show'])->whereNumber('menuItem');
 Route::get('/menu-items/{menuItem}/stock', [InventoryMovementController::class, 'stock'])->whereNumber('menuItem');
 
@@ -57,6 +74,7 @@ Route::prefix('auth')->middleware('auth:sanctum')->group(function () {
 */
 Route::middleware('auth:sanctum')->group(function () {
 
+    Route::middleware('staff.only')->group(function () {
     // ---- Menu + Inventory
     Route::post('/menu-items', [MenuItemController::class, 'store']);
     Route::post('/menu-items/{menuItem}/image', [MenuItemController::class, 'uploadImage'])->whereNumber('menuItem');
@@ -88,13 +106,15 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/salaries', [SalaryController::class, 'store']);
     Route::patch('/salaries/{salary}/mark-paid', [SalaryController::class, 'markPaid'])->whereNumber('salary');
 
+    });
+
     // ---- Complaints
     Route::post('/complaints', [ComplaintController::class, 'store']);
     Route::get('/complaints', [ComplaintController::class, 'index']);
-    Route::patch('/complaints/{complaint}', [ComplaintController::class, 'update'])->whereNumber('complaint');
-    Route::patch('/complaints/{complaint}/assign/{staff}', [ComplaintController::class, 'assign'])->whereNumber('complaint')->whereNumber('staff');
-    Route::patch('/complaints/{complaint}/resolve', [ComplaintController::class, 'resolve'])->whereNumber('complaint');
-    Route::patch('/complaints/{complaint}/reply', [ComplaintController::class, 'reply'])->whereNumber('complaint');
+    Route::patch('/complaints/{complaint}', [ComplaintController::class, 'update'])->middleware('staff.only')->whereNumber('complaint');
+    Route::patch('/complaints/{complaint}/assign/{staff}', [ComplaintController::class, 'assign'])->middleware('staff.only')->whereNumber('complaint')->whereNumber('staff');
+    Route::patch('/complaints/{complaint}/resolve', [ComplaintController::class, 'resolve'])->middleware('staff.only')->whereNumber('complaint');
+    Route::patch('/complaints/{complaint}/reply', [ComplaintController::class, 'reply'])->middleware('staff.only')->whereNumber('complaint');
 
     // ---- Orders
     Route::get('/orders', [OrderController::class, 'index']);

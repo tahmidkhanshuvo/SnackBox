@@ -16,20 +16,25 @@ export default function GlobalFooter({
     tagline: "Fresh. Fast. Friendly.",
   },
   columns = [
-    { title: "Company", links: [{ label: "About", href: "/about" }, { label: "Careers", href: "/careers" }, { label: "Blog", href: "/blog" }] },
-    { title: "Support", links: [{ label: "Help Center", href: "/help" }, { label: "Contact", href: "/contact" }, { label: "Refunds", href: "/refunds" }] },
+    {
+      title: "SnackBox",
+      links: [
+        { label: "Our story", href: "/about" },
+        { label: "Menu", href: "/" },
+      ],
+    },
+    {
+      title: "Help",
+      links: [
+        { label: "FAQ", href: "/help" },
+        { label: "Privacy", href: "/privacy" },
+        { label: "Terms", href: "/terms" },
+      ],
+    },
     // { title: "Legal",   links: [{ label: "Privacy", href: "/privacy" }, { label: "Terms", href: "/terms" }, { label: "Cookies", href: "/cookies" }] },
   ],
-  socials = [
-    { label: "X", href: "https://x.com", icon: "𝕏" },
-    { label: "Instagram", href: "https://instagram.com", icon: "📸" },
-    { label: "Facebook", href: "https://facebook.com", icon: "👍" },
-  ],
-  newsletter = {
-    placeholder: "Your email",
-    cta: "Subscribe",
-    onSubmit: (email) => alert(`Subscribed: ${email}`),
-  },
+  socials = [],
+  newsletter = null,
 }) {
   const go = (href, handler) => (e) => {
     e.preventDefault();
@@ -45,12 +50,16 @@ export default function GlobalFooter({
     e.preventDefault();
     const email = (e.currentTarget.elements.email?.value || "").trim();
     if (!email) return;
-    try { newsletter?.onSubmit?.(email); } catch {}
+    try {
+      newsletter?.onSubmit?.(email);
+    } catch {}
     e.currentTarget.reset();
   };
 
   const areaKey = (t) => {
-    const k = String(t || "").toLowerCase().replace(/\s+/g, "");
+    const k = String(t || "")
+      .toLowerCase()
+      .replace(/\s+/g, "");
     return ["company", "support", "legal"].includes(k) ? k : "";
   };
 
@@ -216,11 +225,20 @@ export default function GlobalFooter({
               <div className="sx-badge">{brand.logo}</div>
               <div className="sx-brand-name">{brand.name}</div>
             </div>
-            {brand.tagline ? <div className="sx-tag">{brand.tagline}</div> : null}
+            {brand.tagline ? (
+              <div className="sx-tag">{brand.tagline}</div>
+            ) : null}
             {socials?.length ? (
               <div className="sx-socials" aria-label="Social links">
                 {socials.map((s) => (
-                  <a key={s.label} className="sx-social" href={s.href} target="_blank" rel="noreferrer" title={s.label}>
+                  <a
+                    key={s.label}
+                    className="sx-social"
+                    href={s.href}
+                    target="_blank"
+                    rel="noreferrer"
+                    title={s.label}
+                  >
                     {s.icon ?? s.label}
                   </a>
                 ))}
@@ -233,12 +251,19 @@ export default function GlobalFooter({
             {columns.map((col) => {
               const key = areaKey(col.title);
               return (
-                <div key={col.title} className={`sx-col ${key || ""} ${/legal/i.test(col.title) ? "legal" : ""}`}>
+                <div
+                  key={col.title}
+                  className={`sx-col ${key || ""} ${/legal/i.test(col.title) ? "legal" : ""}`}
+                >
                   <h4>{col.title}</h4>
                   <ul className="sx-list">
                     {col.links?.map((l) => (
                       <li key={l.label}>
-                        <a className="sx-link" href={l.href || "#"} onClick={go(l.href, l.onClick)}>
+                        <a
+                          className="sx-link"
+                          href={l.href || "#"}
+                          onClick={go(l.href, l.onClick)}
+                        >
                           {l.label}
                         </a>
                       </li>
@@ -248,25 +273,37 @@ export default function GlobalFooter({
               );
             })}
 
-            <div className="sx-col news">
-              <h4>Newsletter</h4>
-              <form className="sx-letter" onSubmit={submitNewsletter}>
-                <p>Get product updates and offers.</p>
-                <div className="sx-field">
-                  <input className="sx-input" type="email" name="email" placeholder={newsletter.placeholder || "Your email"} required />
-                  <button className="sx-cta" type="submit">{newsletter.cta || "Subscribe"}</button>
-                </div>
-              </form>
-            </div>
+            {newsletter && (
+              <div className="sx-col news">
+                <h4>Newsletter</h4>
+                <form className="sx-letter" onSubmit={submitNewsletter}>
+                  <p>Get product updates and offers.</p>
+                  <div className="sx-field">
+                    <input
+                      className="sx-input"
+                      type="email"
+                      name="email"
+                      placeholder={newsletter.placeholder || "Your email"}
+                      required
+                    />
+                    <button className="sx-cta" type="submit">
+                      {newsletter.cta || "Subscribe"}
+                    </button>
+                  </div>
+                </form>
+              </div>
+            )}
           </div>
         </div>
 
         <div className="sx-bottom">
-          <div>© {new Date().getFullYear()} {brand.name}. All rights reserved.</div>
+          <div>
+            © {new Date().getFullYear()} {brand.name}. All rights reserved.
+          </div>
           <div className="sx-chips">
-            <span className="sx-chip">Secure checkout</span>
-            <span className="sx-chip">Fast delivery</span>
-            <span className="sx-chip">Fresh food</span>
+            <span className="sx-chip">Student demo</span>
+            <span className="sx-chip">Order tracking</span>
+            <span className="sx-chip">Your food, your way</span>
           </div>
         </div>
       </footer>

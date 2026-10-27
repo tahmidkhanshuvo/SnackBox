@@ -11,6 +11,9 @@ class DatabaseSeeder extends Seeder
 {
     public function run(): void
     {
+        if (app()->isProduction()) {
+            throw new \RuntimeException('Demo seeding is for local development only. Use snackbox:create-admin for explicit administrator setup.');
+        }
         DB::transaction(function () {
 
             // --- USERS (parents first) ---
@@ -22,6 +25,7 @@ class DatabaseSeeder extends Seeder
             if (!$customer) {
                 $customerId = DB::table('users')->insertGetId([
                     'name'       => 'Customer One',
+                    'role'       => 'customer',
                     'email'      => $customerEmail,
                     'password'   => Hash::make('password'),
                     'created_at' => now(), 'updated_at' => now(),
@@ -36,6 +40,7 @@ class DatabaseSeeder extends Seeder
             if (!$staffUser) {
                 $staffUserId = DB::table('users')->insertGetId([
                     'name'       => 'Staff Member',
+                    'role'       => 'staff',
                     'email'      => $staffEmail,
                     'password'   => Hash::make('password'),
                     'created_at' => now(), 'updated_at' => now(),

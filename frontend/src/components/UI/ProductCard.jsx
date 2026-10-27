@@ -1,17 +1,10 @@
 import React from "react";
 
 export default function ProductCard({ item, onAdd, onDetails }) {
+  const [imageError, setImageError] = React.useState(false);
   if (!item) return null;
 
-  const {
-    id,
-    img,
-    title,
-    badge,
-    rating,
-    time,
-    price,
-  } = item;
+  const { id, img, title, badge, rating, time, price } = item;
 
   // Safe fallbacks
   const displayImg =
@@ -21,9 +14,7 @@ export default function ProductCard({ item, onAdd, onDetails }) {
   const displayRating = typeof rating === "number" ? rating.toFixed(1) : "—";
   const displayTime = time || "20–30 min";
   const displayPrice =
-    typeof price === "number"
-      ? `৳ ${Number(price).toLocaleString()}`
-      : "৳ —";
+    typeof price === "number" ? `৳ ${Number(price).toLocaleString()}` : "৳ —";
 
   const openDetails = () => onDetails?.(item);
   const add = () => onAdd?.(item);
@@ -128,7 +119,28 @@ export default function ProductCard({ item, onAdd, onDetails }) {
           onKeyDown={onKey}
           aria-label={`View details for ${displayTitle}`}
         >
-          <img src={displayImg} alt={displayTitle} loading="lazy" />
+          {!imageError ? (
+            <img
+              src={displayImg}
+              alt={displayTitle}
+              loading="lazy"
+              onError={() => setImageError(true)}
+            />
+          ) : (
+            <div
+              role="img"
+              aria-label={displayTitle}
+              style={{
+                height: "100%",
+                display: "grid",
+                placeItems: "center",
+                background: "#f1e8da",
+                fontSize: 48,
+              }}
+            >
+              🍽️
+            </div>
+          )}
           {badge && <span className="sb-pc-badge">{badge}</span>}
         </div>
 
@@ -143,15 +155,23 @@ export default function ProductCard({ item, onAdd, onDetails }) {
         >
           <h4 className="sb-pc-title">{displayTitle}</h4>
           <div className="sb-pc-meta">
-            <span>⭐ {displayRating}</span>
-            <span>{displayTime}</span>
+            {rating != null && <span>⭐ {displayRating}</span>}
+            {time && <span>{displayTime}</span>}
           </div>
           <div className="sb-pc-price">{displayPrice}</div>
         </div>
 
         <div className="sb-pc-actions">
-          <button className="sb-btn" onClick={openDetails}>Details</button>
-          <button className="sb-btn sb-btn--primary" onClick={add}>Add</button>
+          <button className="sb-btn" onClick={openDetails}>
+            Details
+          </button>
+          <button
+            className="sb-btn sb-btn--primary"
+            onClick={add}
+            disabled={item.available === false}
+          >
+            {item.available === false ? "Unavailable" : "Add to box"}
+          </button>
         </div>
       </article>
     </>

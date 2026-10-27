@@ -35,6 +35,7 @@ return Application::configure(basePath: dirname(__DIR__))
         // Route middleware aliases
         $middleware->alias([
             'admin.only' => \App\Http\Middleware\AdminOnly::class,
+            'staff.only' => \App\Http\Middleware\StaffOnly::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions) {

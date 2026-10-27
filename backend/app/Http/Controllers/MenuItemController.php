@@ -149,7 +149,7 @@ class MenuItemController extends Controller
     public function destroy(MenuItem $menuItem)
     {
         if ($menuItem->image_path) {
-            Storage::disk('public')->delete($menuItem->image_path);
+            \App\Services\MediaStorage::delete($menuItem->image_path);
         }
         $menuItem->delete();
 
@@ -160,14 +160,6 @@ class MenuItemController extends Controller
 
     private function storeImage(Request $request, MenuItem $menuItem): void
     {
-        $file = $request->file('image');
-        $path = $file->store('menu_items', 'public');
-
-        if ($menuItem->image_path) {
-            Storage::disk('public')->delete($menuItem->image_path);
-        }
-
-        $menuItem->image_path = $path;
-        $menuItem->save();
+        \App\Services\MediaStorage::replace($menuItem, 'image_path', $request->file('image'));
     }
 }

@@ -4,14 +4,18 @@ import { CustomerTheme } from "../../components/UI";
 import { useCart } from "../../context/CartContext.jsx";
 
 /* ------- helpers ------- */
-const clamp = (n, min = 1, max = 99) => Math.max(min, Math.min(max, Math.round(Number(n || 0))));
+const clamp = (n, min = 1, max = 99) =>
+  Math.max(min, Math.min(max, Math.round(Number(n || 0))));
 const bd = (n) => `৳ ${Number(n || 0).toLocaleString()}`;
 const unit = (l) => Number(l.price || 0) + Number(l.unitDelta || 0);
-const sumPriced = (arr = []) => arr.reduce((s, x) => s + Number(x?.price || 0), 0);
+const sumPriced = (arr = []) =>
+  arr.reduce((s, x) => s + Number(x?.price || 0), 0);
 
 function summarize(line) {
   const sels = Object.entries(line?.selections || {});
-  const adds = Object.entries(line?.addons || {}).flatMap(([k, arr]) => arr?.map((a) => `${k}:${a}`) || []);
+  const adds = Object.entries(line?.addons || {}).flatMap(
+    ([k, arr]) => arr?.map((a) => `${k}:${a}`) || [],
+  );
   const parts = [];
   if (sels.length) parts.push(...sels.map(([g, c]) => `${g}: ${c}`));
   if (adds.length) parts.push(...adds.map((x) => `+ ${x}`));
@@ -28,14 +32,19 @@ export default function Cart({ goHome, onContinueShopping, onProfile }) {
   const empty = !lines?.length;
 
   const placeOrder = async () => {
-    setError(""); setOk(""); setPlacing(true);
+    setError("");
+    setOk("");
+    setPlacing(true);
     try {
       const data = await checkout({ order_note: note });
       setOk("Order placed successfully!");
       clear();
-      setTimeout(() => { goHome?.(); }, 600);
+      setTimeout(() => {
+        goHome?.();
+      }, 600);
     } catch (e) {
-      const msg = e?.response?.data?.message || e?.message || "Failed to place order.";
+      const msg =
+        e?.response?.data?.message || e?.message || "Failed to place order.";
       setError(msg);
     } finally {
       setPlacing(false);
@@ -50,8 +59,12 @@ export default function Cart({ goHome, onContinueShopping, onProfile }) {
         {/* HERO */}
         <section className="c-hero">
           <div className="c-badge">Cart</div>
-          <h1 className="c-title">Review & <span className="grad">checkout</span></h1>
-          <p className="c-sub">Edit quantities, add a note, and place your order securely.</p>
+          <h1 className="c-title">
+            Review & <span className="grad">checkout</span>
+          </h1>
+          <p className="c-sub">
+            Edit quantities, add a note, and place your order securely.
+          </p>
         </section>
 
         {/* EMPTY STATE */}
@@ -62,8 +75,15 @@ export default function Cart({ goHome, onContinueShopping, onProfile }) {
               <h3>Your cart is empty</h3>
               <p>Looks like you haven’t added anything yet.</p>
               <div className="row">
-                <button className="btn primary" onClick={() => onContinueShopping?.() || goHome?.()}>Browse menu</button>
-                <button className="btn ghost" onClick={onProfile}>Go to profile</button>
+                <button
+                  className="btn primary"
+                  onClick={() => onContinueShopping?.() || goHome?.()}
+                >
+                  Browse menu
+                </button>
+                <button className="btn ghost" onClick={onProfile}>
+                  Go to profile
+                </button>
               </div>
             </div>
           </section>
@@ -87,12 +107,18 @@ export default function Cart({ goHome, onContinueShopping, onProfile }) {
                   <article key={l.lineId} className="c-line">
                     <div className="media">
                       <div className="thumb">
-                        {l.img ? <img src={l.img} alt={l.name} /> : <div className="ph">🍽</div>}
+                        {l.img ? (
+                          <img src={l.img} alt={l.name} />
+                        ) : (
+                          <div className="ph">🍽</div>
+                        )}
                       </div>
 
                       <div className="body">
                         <div className="row head">
-                          <h4 className="name" title={l.name}>{l.name}</h4>
+                          <h4 className="name" title={l.name}>
+                            {l.name}
+                          </h4>
                           <div className="price">{bd(u)}</div>
                         </div>
 
@@ -101,11 +127,25 @@ export default function Cart({ goHome, onContinueShopping, onProfile }) {
                           {hasBreakdown ? (
                             <>
                               <span className="muted">Base:</span> {bd(base)}
-                              {selTotal ? <> • <span className="muted">Options:</span> {bd(selTotal)}</> : null}
-                              {addTotal ? <> • <span className="muted">Add-ons:</span> {bd(addTotal)}</> : null}
+                              {selTotal ? (
+                                <>
+                                  {" "}
+                                  • <span className="muted">Options:</span>{" "}
+                                  {bd(selTotal)}
+                                </>
+                              ) : null}
+                              {addTotal ? (
+                                <>
+                                  {" "}
+                                  • <span className="muted">Add-ons:</span>{" "}
+                                  {bd(addTotal)}
+                                </>
+                              ) : null}
                             </>
                           ) : (
-                            summarize(l) || <span className="muted">No options</span>
+                            summarize(l) || (
+                              <span className="muted">No options</span>
+                            )
                           )}
                         </div>
 
@@ -123,8 +163,14 @@ export default function Cart({ goHome, onContinueShopping, onProfile }) {
                                 <>
                                   <div className="bk-section">Options</div>
                                   {l.pricedSelections.map((p, i) => (
-                                    <div className="bk-row small" key={`sel-${l.lineId}-${i}`}>
-                                      <span>{p.title || p.groupKey}: {p.label || p.choiceKey}</span>
+                                    <div
+                                      className="bk-row small"
+                                      key={`sel-${l.lineId}-${i}`}
+                                    >
+                                      <span>
+                                        {p.title || p.groupKey}:{" "}
+                                        {p.label || p.choiceKey}
+                                      </span>
                                       <b>{bd(p.price || 0)}</b>
                                     </div>
                                   ))}
@@ -139,8 +185,14 @@ export default function Cart({ goHome, onContinueShopping, onProfile }) {
                                 <>
                                   <div className="bk-section">Add-ons</div>
                                   {l.pricedAddons.map((p, i) => (
-                                    <div className="bk-row small" key={`add-${l.lineId}-${i}`}>
-                                      <span>{p.title || p.groupKey}: {p.label || p.choiceKey}</span>
+                                    <div
+                                      className="bk-row small"
+                                      key={`add-${l.lineId}-${i}`}
+                                    >
+                                      <span>
+                                        {p.title || p.groupKey}:{" "}
+                                        {p.label || p.choiceKey}
+                                      </span>
                                       <b>{bd(p.price || 0)}</b>
                                     </div>
                                   ))}
@@ -163,18 +215,32 @@ export default function Cart({ goHome, onContinueShopping, onProfile }) {
                           <div className="qty">
                             <button
                               aria-label="Decrease quantity"
-                              onClick={() => updateQty(l.lineId, clamp(l.qty - 1))}
-                            >−</button>
-                            <div className="val" aria-live="polite">{l.qty}</div>
+                              onClick={() =>
+                                updateQty(l.lineId, clamp(l.qty - 1))
+                              }
+                            >
+                              −
+                            </button>
+                            <div className="val" aria-live="polite">
+                              {l.qty}
+                            </div>
                             <button
                               aria-label="Increase quantity"
-                              onClick={() => updateQty(l.lineId, clamp(l.qty + 1))}
-                            >＋</button>
+                              onClick={() =>
+                                updateQty(l.lineId, clamp(l.qty + 1))
+                              }
+                            >
+                              ＋
+                            </button>
                           </div>
 
                           <div className="line-total">{bd(lineTotal)}</div>
 
-                          <button className="remove" onClick={() => removeItem(l.lineId)} aria-label="Remove from cart">
+                          <button
+                            className="remove"
+                            onClick={() => removeItem(l.lineId)}
+                            aria-label="Remove from cart"
+                          >
                             Remove
                           </button>
                         </div>
@@ -217,17 +283,26 @@ export default function Cart({ goHome, onContinueShopping, onProfile }) {
                 {ok && <div className="alert ok">{ok}</div>}
 
                 <div className="actions">
-                  <button className="btn ghost" onClick={() => onContinueShopping?.() || goHome?.()}>Continue shopping</button>
-                  <button className="btn primary" disabled={placing || !totals.count} onClick={placeOrder}>
+                  <button
+                    className="btn ghost"
+                    onClick={() => onContinueShopping?.() || goHome?.()}
+                  >
+                    Continue shopping
+                  </button>
+                  <button
+                    className="btn primary"
+                    disabled={placing || !totals.count}
+                    onClick={placeOrder}
+                  >
                     {placing ? "Placing…" : `Place order • ${bd(totals.total)}`}
                   </button>
                 </div>
               </div>
 
               <div className="perk-row">
-                <span className="chip">🔐 Secure checkout</span>
-                <span className="chip">⚡ Fast prep</span>
-                <span className="chip">🧊 Fresh food</span>
+                <span className="chip">🍱 Canteen orders</span>
+                <span className="chip">📋 Track your order</span>
+                <span className="chip">✍️ Add your notes</span>
               </div>
             </aside>
 
@@ -237,7 +312,11 @@ export default function Cart({ goHome, onContinueShopping, onProfile }) {
                 <div className="label">Total</div>
                 <div className="value">{bd(totals.total)}</div>
               </div>
-              <button className="mb-cta" disabled={placing || !totals.count} onClick={placeOrder}>
+              <button
+                className="mb-cta"
+                disabled={placing || !totals.count}
+                onClick={placeOrder}
+              >
                 {placing ? "Placing…" : "Place order"}
               </button>
             </div>

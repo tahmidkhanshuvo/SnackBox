@@ -1,0 +1,19 @@
+{
+  "rewrites": [
+    {
+      "source": "/api/:path*",
+      "destination": "https://snackbox-backend.onrender.com/api/:path*"
+    },
+    {
+      "source": "/storage/:path*",
+      "destination": "https://snackbox-backend.onrender.com/storage/:path*"
+    },
+    { "source": "/(.*)", "destination": "/index.html" }
+  ],
+  "headers": [
+    {
+      "source": "/api/:path*",
+      "headers": [{ "key": "Cache-Control", "value": "private, no-store" }]
+    }
+  ]
+}
