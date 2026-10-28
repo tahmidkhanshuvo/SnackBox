@@ -53,7 +53,7 @@ export default function PrivacyPolicy() {
 
         <h2 className="text-xl font-semibold">How we use your information</h2>
         <ul className="list-disc ml-5 space-y-1">
-          <li>Process orders, payments, and notifications</li>
+          <li>Store demonstration orders, profiles, and feedback</li>
           <li>Improve menus, operations, and user experience</li>
           <li>Provide promotions and service updates (where permitted)</li>
           <li>Comply with institutional and legal requirements</li>

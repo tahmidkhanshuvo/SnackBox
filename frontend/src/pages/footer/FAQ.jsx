@@ -9,8 +9,8 @@ export default function FAQ() {
   const heroSrc = useMemo(() => resolvePublic("ForCommonUse.jpg"), []);
   const faqs = [
     { q: "How do I place an order?", a: "Open Menu, view an item, add to cart, then proceed to Checkout." },
-    { q: "Which payment methods are supported?", a: "Depending on your canteen: COD, bKash, and Nagad may be available." },
-    { q: "How do I track my order?", a: "Go to Orders to see real-time status from kitchen to pickup/delivery." },
+    { q: "Does the demo charge me?", a: "No. Checkout creates a demonstration order only. No money is collected and no food is delivered." },
+    { q: "How do I track my order?", a: "Sign in and open Orders to see the latest status recorded by the canteen staff." },
     { q: "Who do I contact for an issue?", a: "Use the Feedback page or contact the counter staff directly." }
   ];
 

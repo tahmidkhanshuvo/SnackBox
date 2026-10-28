@@ -28,6 +28,7 @@ RUN [ -L public/storage ] || ln -s ../storage/app/public public/storage
 ENV PORT=10000 \
     APP_ENV=production \
     APP_DEBUG=false \
+    LOG_CHANNEL=stderr \
     PHP_OPCACHE_VALIDATE_TIMESTAMPS=0
 EXPOSE 10000
 USER laravel

@@ -15,11 +15,9 @@ storage/framework/sessions
 storage/framework/views
 
 # Local environment
-.env
-.env.local
-.env.development
-.env.production
-.env.testing
+.env*
+!.env.example
+bootstrap/cache/*.php
 
 # Composer artifacts
 /vendor

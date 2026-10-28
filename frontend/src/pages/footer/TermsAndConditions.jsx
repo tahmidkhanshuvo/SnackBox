@@ -46,7 +46,7 @@ export default function TermsAndConditions() {
           <ul className="list-disc ml-5 space-y-1">
             <li>Prices are shown in local currency and may change without notice.</li>
             <li>Orders may be cancelled if items are unavailable or for operational reasons.</li>
-            <li>Supported payments (e.g., COD, bKash, Nagad) depend on canteen settings.</li>
+            <li>This student demo records orders without collecting payments or arranging real delivery.</li>
           </ul>
         </section>
 
