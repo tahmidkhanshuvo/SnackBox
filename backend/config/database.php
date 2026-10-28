@@ -95,6 +95,10 @@ return [
             'prefix_indexes' => true,
             'search_path' => 'public',
             'sslmode' => env('DB_SSLMODE', 'require'),
+            // PHP 8.3 PDO's statement deallocation is incompatible with transaction
+            // poolers. Keep bound parameters, using PDO's recommended client prepares.
+            // https://www.pgbouncer.org/faq.html#how-to-use-prepared-statements-with-transaction-pooling
+            'options' => [PDO::ATTR_EMULATE_PREPARES => env('DB_EMULATE_PREPARES', true)],
         ],
 
         'sqlsrv' => [

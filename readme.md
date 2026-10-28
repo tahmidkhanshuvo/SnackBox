@@ -6,7 +6,7 @@
 
 A campus canteen application connecting customers, kitchen staff, inventory and administration.
 
-[Live demo](https://snackbox-frontend.onrender.com) · [Report an issue](https://github.com/tahmidkhanshuvo/SnackBox/issues)
+[Live demo](https://snackbox.tahmidkhan.com.bd) · [Report an issue](https://github.com/tahmidkhanshuvo/SnackBox/issues)
 
 ![React](https://img.shields.io/badge/React-18-61dafb?logo=react) ![Vite](https://img.shields.io/badge/Vite-7-646cff?logo=vite) ![Laravel](https://img.shields.io/badge/Laravel-12-ff2d20?logo=laravel) ![PHP](https://img.shields.io/badge/PHP-8.3-777bb4?logo=php)
 
@@ -132,3 +132,5 @@ The existing free Render Docker API uses root `backend`, Dockerfile `Dockerfile`
 Deploy the frontend with root `frontend`, build `npm run build`, output `dist`, and its public API origin. The included Vercel configuration forwards same-origin API requests to Render and preserves direct application URLs on refresh. Keep the old deployment for rollback. After release, verify catalogue images, sign-in, cart notes, one disposable order, scoped order history and staff access. Free Render services can take a moment to wake.
 
 The refreshed public demo uses a new free Neon PostgreSQL database. The previous Railway MySQL database was unavailable during verification; it was not reset or deleted, and its connection was retained in ignored local recovery configuration. Historical Railway records were not migrated. The new demo catalogue and existing owner login were provisioned explicitly.
+
+The PHP 8.3 PostgreSQL connection uses emulated prepared statements for compatibility with Neon's transaction pooler, while continuing to bind query parameters. This follows the [PgBouncer PHP/PDO guidance](https://www.pgbouncer.org/faq.html#how-to-use-prepared-statements-with-transaction-pooling). Set `DB_EMULATE_PREPARES=false` only with a compatible direct connection/client. Container logs go to stderr for hosting diagnostics; private `.env*` files and compiled local configuration are excluded from Docker builds.
